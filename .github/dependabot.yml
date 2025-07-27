@@ -11,36 +11,6 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Tokyo"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "nyasuto"
-    assignees:
-      - "nyasuto"
-    commit-message:
-      prefix: "deps"
-      prefix-development: "deps-dev"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "go"
-    # Group updates for better PR management
-    groups:
-      go-minor-patch:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    # Auto-merge patch updates for trusted dependencies
-    allow:
-      - dependency-type: "direct"
-        update-type: "security"
-      - dependency-type: "indirect"
-        update-type: "security"
-    ignore:
-      # Ignore major version updates for stability
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
 
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
@@ -50,23 +20,3 @@ updates:
       day: "monday"
       time: "09:30"
       timezone: "Asia/Tokyo"
-    open-pull-requests-limit: 3
-    reviewers:
-      - "nyasuto"
-    assignees:
-      - "nyasuto"
-    commit-message:
-      prefix: "ci"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "github-actions"
-      - "ci"
-    # Group GitHub Actions updates
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
