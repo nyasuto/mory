@@ -180,10 +180,10 @@ func (s *Server) handleSaveMemory(ctx context.Context, arguments map[string]inte
 	// Success response
 	var responseText string
 	if key != "" {
-		responseText = fmt.Sprintf("✅ Memory saved successfully!\n📝 Category: %s\n🔑 Key: %s\n💾 Value: %s\n🆔 ID: %s", 
+		responseText = fmt.Sprintf("✅ Memory saved successfully!\n📝 Category: %s\n🔑 Key: %s\n💾 Value: %s\n🆔 ID: %s",
 			category, key, value, id)
 	} else {
-		responseText = fmt.Sprintf("✅ Memory saved successfully!\n📝 Category: %s\n💾 Value: %s\n🆔 ID: %s", 
+		responseText = fmt.Sprintf("✅ Memory saved successfully!\n📝 Category: %s\n💾 Value: %s\n🆔 ID: %s",
 			category, value, id)
 	}
 
@@ -329,19 +329,19 @@ func (s *Server) handleListMemories(ctx context.Context, arguments map[string]in
 			} else {
 				displayName = mem.ID
 			}
-			
-			responseText += fmt.Sprintf("%d. %s: %s (%s)\n", 
-				i+1, displayName, mem.Value, 
+
+			responseText += fmt.Sprintf("%d. %s: %s (%s)\n",
+				i+1, displayName, mem.Value,
 				mem.CreatedAt.Format("2006-01-02 15:04:05"))
-			
+
 			if mem.Category != "" {
 				responseText += fmt.Sprintf("   📝 Category: %s\n", mem.Category)
 			}
-			
+
 			if len(mem.Tags) > 0 {
 				responseText += fmt.Sprintf("   🏷️ Tags: %v\n", mem.Tags)
 			}
-			
+
 			responseText += "\n"
 		}
 	}

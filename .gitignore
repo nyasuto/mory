@@ -27,3 +27,10 @@ Thumbs.db
 
 # Config files (can contain sensitive data)
 config.json
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Go module cache
+go.sum.tmp

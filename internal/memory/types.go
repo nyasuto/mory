@@ -7,11 +7,11 @@ import (
 
 // Memory represents a stored memory item
 type Memory struct {
-	ID        string    `json:"id"`         // 自動生成: memory_20250127123456
+	ID        string    `json:"id"` // 自動生成: memory_20250127123456
 	Category  string    `json:"category"`
-	Key       string    `json:"key"`        // オプション: ユーザーフレンドリーなエイリアス
+	Key       string    `json:"key"` // オプション: ユーザーフレンドリーなエイリアス
 	Value     string    `json:"value"`
-	Tags      []string  `json:"tags"`       // 関連タグ（将来的な検索用）
+	Tags      []string  `json:"tags"` // 関連タグ（将来的な検索用）
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -30,13 +30,13 @@ type OperationLog struct {
 
 // MemoryStore defines the interface for memory storage operations
 type MemoryStore interface {
-	Save(memory *Memory) (string, error)     // IDを返すように変更
+	Save(memory *Memory) (string, error) // IDを返すように変更
 	Get(key string) (*Memory, error)
-	GetByID(id string) (*Memory, error)     // ID検索メソッド追加
+	GetByID(id string) (*Memory, error) // ID検索メソッド追加
 	List(category string) ([]*Memory, error)
 	Delete(key string) error
-	DeleteByID(id string) error             // ID削除メソッド追加
-	LogOperation(log *OperationLog) error   // 操作ログ記録メソッド追加
+	DeleteByID(id string) error           // ID削除メソッド追加
+	LogOperation(log *OperationLog) error // 操作ログ記録メソッド追加
 }
 
 // GenerateID generates a timestamp-based unique ID
