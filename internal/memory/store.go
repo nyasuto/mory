@@ -3,6 +3,7 @@ package memory
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -325,16 +326,104 @@ func (s *JSONMemoryStore) loadMemories() ([]*Memory, error) {
 
 // saveMemories saves memories to the JSON file
 func (s *JSONMemoryStore) saveMemories(memories []*Memory) error {
+	log.Printf("[SaveMemories] Starting save process for %d memories", len(memories))
+	log.Printf("[SaveMemories] Target file: %s", s.dataFile)
+
 	// Create data directory if it doesn't exist
 	dataDir := filepath.Dir(s.dataFile)
+	log.Printf("[SaveMemories] Data directory: %s", dataDir)
+
+	// Check if data directory exists first
+	if info, err := os.Stat(dataDir); err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("[SaveMemories] Data directory does not exist, creating: %s", dataDir)
+		} else {
+			log.Printf("[SaveMemories] ERROR: Failed to stat data directory: %v", err)
+			return fmt.Errorf("failed to stat data directory: %w", err)
+		}
+	} else {
+		log.Printf("[SaveMemories] Data directory exists, permissions: %s", info.Mode())
+		if !info.IsDir() {
+			log.Printf("[SaveMemories] ERROR: Data path exists but is not a directory: %s", dataDir)
+			return fmt.Errorf("data path exists but is not a directory: %s", dataDir)
+		}
+	}
+
+	// Check current working directory for debugging
+	if wd, err := os.Getwd(); err == nil {
+		log.Printf("[SaveMemories] Current working directory: %s", wd)
+	}
+
+	log.Printf("[SaveMemories] Creating data directory with mode 0755: %s", dataDir)
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Printf("[SaveMemories] ERROR: Failed to create data directory: %v", err)
+		log.Printf("[SaveMemories] Error type: %T", err)
+
+		// Enhanced error reporting
+		if os.IsPermission(err) {
+			log.Printf("[SaveMemories] Permission denied error detected")
+			// Test write permissions in current directory
+			if wd, wdErr := os.Getwd(); wdErr == nil {
+				testFile := filepath.Join(wd, ".mory-permission-test")
+				if testErr := os.WriteFile(testFile, []byte("test"), 0644); testErr != nil {
+					log.Printf("[SaveMemories] Current directory write test failed: %v", testErr)
+				} else {
+					log.Printf("[SaveMemories] Current directory is writable")
+					if removeErr := os.Remove(testFile); removeErr != nil {
+						log.Printf("[SaveMemories] Warning: failed to cleanup permission test file: %v", removeErr)
+					}
+				}
+			}
+		}
+
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
+	log.Printf("[SaveMemories] Data directory created successfully")
+
+	// Marshal memories to JSON
+	log.Printf("[SaveMemories] Marshaling %d memories to JSON", len(memories))
 	data, err := json.MarshalIndent(memories, "", "  ")
 	if err != nil {
-		return err
+		log.Printf("[SaveMemories] ERROR: Failed to marshal memories: %v", err)
+		return fmt.Errorf("failed to marshal memories: %w", err)
 	}
 
-	return os.WriteFile(s.dataFile, data, 0644)
+	log.Printf("[SaveMemories] JSON data size: %d bytes", len(data))
+
+	// Write to file
+	log.Printf("[SaveMemories] Writing to file: %s", s.dataFile)
+	if err := os.WriteFile(s.dataFile, data, 0644); err != nil {
+		log.Printf("[SaveMemories] ERROR: Failed to write file: %v", err)
+		log.Printf("[SaveMemories] Error type: %T", err)
+
+		// Check if it's a permission error
+		if os.IsPermission(err) {
+			log.Printf("[SaveMemories] File write permission denied")
+
+			// Test directory write permissions
+			testFile := filepath.Join(dataDir, ".mory-file-test")
+			if testErr := os.WriteFile(testFile, []byte("test"), 0644); testErr != nil {
+				log.Printf("[SaveMemories] Directory write test failed: %v", testErr)
+			} else {
+				log.Printf("[SaveMemories] Directory write test successful")
+				if removeErr := os.Remove(testFile); removeErr != nil {
+					log.Printf("[SaveMemories] Warning: failed to cleanup file test: %v", removeErr)
+				}
+			}
+		}
+
+		return fmt.Errorf("failed to write memories file: %w", err)
+	}
+
+	log.Printf("[SaveMemories] File written successfully")
+
+	// Verify the file was written correctly
+	if info, err := os.Stat(s.dataFile); err == nil {
+		log.Printf("[SaveMemories] File verification: size=%d bytes, mode=%s", info.Size(), info.Mode())
+	} else {
+		log.Printf("[SaveMemories] WARNING: Could not verify written file: %v", err)
+	}
+
+	return nil
 }

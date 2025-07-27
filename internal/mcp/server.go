@@ -137,13 +137,20 @@ func (s *Server) handleSaveMemory(ctx context.Context, arguments map[string]inte
 
 	// Save memory using the store
 	if s.store == nil {
+		log.Printf("[SaveMemoryTool] ERROR: Memory store not initialized")
 		return mcp.NewToolResultError("memory store not initialized"), nil
 	}
 
+	log.Printf("[SaveMemoryTool] Attempting to save memory: category=%s, key=%s, value_length=%d",
+		category, key, len(value))
+
 	id, err := s.store.Save(mem)
 	if err != nil {
+		log.Printf("[SaveMemoryTool] ERROR: Failed to save memory: %v", err)
 		return mcp.NewToolResultErrorFromErr("failed to save memory", err), nil
 	}
+
+	log.Printf("[SaveMemoryTool] Memory saved successfully with ID: %s", id)
 
 	// Success response
 	var responseText string
