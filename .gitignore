@@ -1,0 +1,29 @@
+# Binaries
+/bin/
+mory
+*.exe
+
+# Go build artifacts
+*.o
+*.a
+*.so
+
+# Data files (local storage)
+/data/
+*.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Config files (can contain sensitive data)
+config.json
