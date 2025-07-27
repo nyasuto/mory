@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+
+# CI/CD
+.github/
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Data files
+data/
+*.json
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+go.sum.tmp
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Other
+*.tmp
+*.temp
+*.cache
