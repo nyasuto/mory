@@ -71,6 +71,24 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 	mcpServer.AddTool(saveMemoryTool, func(arguments map[string]interface{}) (*mcp.CallToolResult, error) {
 		return s.handleSaveMemory(context.Background(), arguments)
 	})
+
+	// get_memory tool
+	getMemoryTool := mcp.Tool{
+		Name:        "get_memory",
+		Description: "Retrieve a memory by key or ID",
+		InputSchema: mcp.ToolInputSchema{
+			Type: "object",
+			Properties: map[string]any{
+				"key": map[string]any{
+					"type":        "string",
+					"description": "Memory key or ID to retrieve",
+				},
+			},
+		},
+	}
+	mcpServer.AddTool(getMemoryTool, func(arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+		return s.handleGetMemory(context.Background(), arguments)
+	})
 }
 
 // handleSaveMemory handles the save_memory tool
@@ -149,6 +167,81 @@ func (s *Server) handleSaveMemory(ctx context.Context, arguments map[string]inte
 	} else {
 		responseText = fmt.Sprintf("✅ Memory saved successfully!\n📝 Category: %s\n💾 Value: %s\n🆔 ID: %s", 
 			category, value, id)
+	}
+
+	return &mcp.CallToolResult{
+		Content: []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": responseText,
+			},
+		},
+	}, nil
+}
+
+// handleGetMemory handles the get_memory tool
+func (s *Server) handleGetMemory(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+	key, ok := arguments["key"].(string)
+	if !ok || key == "" {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "Error: key parameter is required and must be a non-empty string",
+				},
+			},
+		}, nil
+	}
+
+	// Check if store is initialized
+	if s.store == nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "Error: memory store not initialized",
+				},
+			},
+		}, nil
+	}
+
+	// Try to get memory by key first
+	memory, err := s.store.Get(key)
+	if err != nil {
+		// If not found by key, try by ID
+		memory, err = s.store.GetByID(key)
+		if err != nil {
+			return &mcp.CallToolResult{
+				IsError: true,
+				Content: []interface{}{
+					map[string]interface{}{
+						"type": "text",
+						"text": fmt.Sprintf("❌ Memory not found with key or ID: %s", key),
+					},
+				},
+			}, nil
+		}
+	}
+
+	// Success response with memory details
+	var responseText string
+	if memory.Key != "" {
+		responseText = fmt.Sprintf("✅ Memory retrieved successfully!\n📝 Category: %s\n🔑 Key: %s\n💾 Value: %s\n🆔 ID: %s\n📅 Created: %s\n🔄 Updated: %s",
+			memory.Category, memory.Key, memory.Value, memory.ID,
+			memory.CreatedAt.Format("2006-01-02 15:04:05"),
+			memory.UpdatedAt.Format("2006-01-02 15:04:05"))
+	} else {
+		responseText = fmt.Sprintf("✅ Memory retrieved successfully!\n📝 Category: %s\n💾 Value: %s\n🆔 ID: %s\n📅 Created: %s\n🔄 Updated: %s",
+			memory.Category, memory.Value, memory.ID,
+			memory.CreatedAt.Format("2006-01-02 15:04:05"),
+			memory.UpdatedAt.Format("2006-01-02 15:04:05"))
+	}
+
+	// Add tags if present
+	if len(memory.Tags) > 0 {
+		responseText += fmt.Sprintf("\n🏷️ Tags: %v", memory.Tags)
 	}
 
 	return &mcp.CallToolResult{
