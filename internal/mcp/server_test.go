@@ -28,7 +28,7 @@ func (m *MockMemoryStore) Save(mem *memory.Memory) (string, error) {
 		mem.ID = memory.GenerateID()
 	}
 	m.lastID = mem.ID
-	
+
 	// Store by key if provided
 	if mem.Key != "" {
 		m.memories[mem.Key] = mem
@@ -36,7 +36,7 @@ func (m *MockMemoryStore) Save(mem *memory.Memory) (string, error) {
 	} else {
 		m.memories[mem.ID] = mem
 	}
-	
+
 	return mem.ID, nil
 }
 
@@ -100,17 +100,17 @@ func (m *MockMemoryStore) LogOperation(log *memory.OperationLog) error {
 func TestNewServer(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
-	
+
 	server := NewServer(cfg, store)
-	
+
 	if server.config != cfg {
 		t.Error("Expected config to be set")
 	}
-	
+
 	if server.store != store {
 		t.Error("Expected store to be set")
 	}
-	
+
 	if server.server != nil {
 		t.Error("Expected server to be nil initially")
 	}
@@ -120,48 +120,48 @@ func TestHandleSaveMemory_Success(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	arguments := map[string]interface{}{
 		"category": "personal",
 		"value":    "test value",
 		"key":      "test_key",
 	}
-	
+
 	result, err := server.handleSaveMemory(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if result.IsError {
 		t.Error("Expected success result")
 	}
-	
+
 	if len(result.Content) != 1 {
 		t.Errorf("Expected 1 content item, got %d", len(result.Content))
 	}
-	
+
 	content, ok := result.Content[0].(map[string]interface{})
 	if !ok {
 		t.Error("Expected content to be map[string]interface{}")
 	}
-	
+
 	text, ok := content["text"].(string)
 	if !ok {
 		t.Error("Expected text field in content")
 	}
-	
+
 	if !strings.Contains(text, "Memory saved successfully") {
 		t.Errorf("Expected success message, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "personal") {
 		t.Errorf("Expected category in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "test value") {
 		t.Errorf("Expected value in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "test_key") {
 		t.Errorf("Expected key in response, got: %s", text)
 	}
@@ -171,23 +171,23 @@ func TestHandleSaveMemory_MissingCategory(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	arguments := map[string]interface{}{
 		"value": "test value",
 	}
-	
+
 	result, err := server.handleSaveMemory(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if !result.IsError {
 		t.Error("Expected error result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "category parameter is required") {
 		t.Errorf("Expected category error, got: %s", text)
 	}
@@ -197,23 +197,23 @@ func TestHandleSaveMemory_MissingValue(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	arguments := map[string]interface{}{
 		"category": "personal",
 	}
-	
+
 	result, err := server.handleSaveMemory(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if !result.IsError {
 		t.Error("Expected error result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "value parameter is required") {
 		t.Errorf("Expected value error, got: %s", text)
 	}
@@ -222,24 +222,24 @@ func TestHandleSaveMemory_MissingValue(t *testing.T) {
 func TestHandleSaveMemory_NilStore(t *testing.T) {
 	cfg := config.DefaultConfig()
 	server := NewServer(cfg, nil)
-	
+
 	arguments := map[string]interface{}{
 		"category": "personal",
 		"value":    "test value",
 	}
-	
+
 	result, err := server.handleSaveMemory(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if !result.IsError {
 		t.Error("Expected error result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "memory store not initialized") {
 		t.Errorf("Expected store error, got: %s", text)
 	}
@@ -249,7 +249,7 @@ func TestHandleGetMemory_Success(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	// First save a memory
 	testMemory := &memory.Memory{
 		Category: "personal",
@@ -261,39 +261,39 @@ func TestHandleGetMemory_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to save test memory: %v", err)
 	}
-	
+
 	arguments := map[string]interface{}{
 		"key": "test_key",
 	}
-	
+
 	result, err := server.handleGetMemory(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if result.IsError {
 		t.Error("Expected success result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "Memory retrieved successfully") {
 		t.Errorf("Expected success message, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "personal") {
 		t.Errorf("Expected category in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "test value") {
 		t.Errorf("Expected value in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "test_key") {
 		t.Errorf("Expected key in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "tag1") {
 		t.Errorf("Expected tags in response, got: %s", text)
 	}
@@ -303,23 +303,23 @@ func TestHandleGetMemory_NotFound(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	arguments := map[string]interface{}{
 		"key": "nonexistent",
 	}
-	
+
 	result, err := server.handleGetMemory(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if !result.IsError {
 		t.Error("Expected error result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "Memory not found") {
 		t.Errorf("Expected not found error, got: %s", text)
 	}
@@ -329,21 +329,21 @@ func TestHandleListMemories_Empty(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	arguments := map[string]interface{}{}
-	
+
 	result, err := server.handleListMemories(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if result.IsError {
 		t.Error("Expected success result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "No memories stored yet") {
 		t.Errorf("Expected empty message, got: %s", text)
 	}
@@ -353,47 +353,47 @@ func TestHandleListMemories_WithData(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	// Add test memories
 	memory1 := &memory.Memory{Category: "personal", Key: "key1", Value: "value1"}
 	memory2 := &memory.Memory{Category: "work", Key: "key2", Value: "value2"}
-	
+
 	_, err := store.Save(memory1)
 	if err != nil {
 		t.Fatalf("Failed to save memory1: %v", err)
 	}
-	
+
 	_, err = store.Save(memory2)
 	if err != nil {
 		t.Fatalf("Failed to save memory2: %v", err)
 	}
-	
+
 	arguments := map[string]interface{}{}
-	
+
 	result, err := server.handleListMemories(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if result.IsError {
 		t.Error("Expected success result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "All stored memories") {
 		t.Errorf("Expected list header, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "total: 2") {
 		t.Errorf("Expected count in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "value1") {
 		t.Errorf("Expected value1 in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "value2") {
 		t.Errorf("Expected value2 in response, got: %s", text)
 	}
@@ -403,49 +403,49 @@ func TestHandleListMemories_WithCategoryFilter(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
 	server := NewServer(cfg, store)
-	
+
 	// Add test memories
 	memory1 := &memory.Memory{Category: "personal", Key: "key1", Value: "value1"}
 	memory2 := &memory.Memory{Category: "work", Key: "key2", Value: "value2"}
-	
+
 	_, err := store.Save(memory1)
 	if err != nil {
 		t.Fatalf("Failed to save memory1: %v", err)
 	}
-	
+
 	_, err = store.Save(memory2)
 	if err != nil {
 		t.Fatalf("Failed to save memory2: %v", err)
 	}
-	
+
 	arguments := map[string]interface{}{
 		"category": "personal",
 	}
-	
+
 	result, err := server.handleListMemories(context.Background(), arguments)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if result.IsError {
 		t.Error("Expected success result")
 	}
-	
+
 	content := result.Content[0].(map[string]interface{})
 	text := content["text"].(string)
-	
+
 	if !strings.Contains(text, "Memories in category 'personal'") {
 		t.Errorf("Expected category filter header, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "total: 1") {
 		t.Errorf("Expected filtered count in response, got: %s", text)
 	}
-	
+
 	if !strings.Contains(text, "value1") {
 		t.Errorf("Expected value1 in response, got: %s", text)
 	}
-	
+
 	if strings.Contains(text, "value2") {
 		t.Errorf("Expected value2 NOT in response, got: %s", text)
 	}
