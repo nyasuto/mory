@@ -86,7 +86,7 @@ func (s *JSONMemoryStore) Save(memory *Memory) (string, error) {
 	if existingMemory != nil {
 		operation = "update"
 	}
-	
+
 	log := &OperationLog{
 		Timestamp:   now,
 		OperationID: GenerateOperationID(),
@@ -277,7 +277,11 @@ func (s *JSONMemoryStore) LogOperation(log *OperationLog) error {
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			fmt.Printf("Warning: failed to close log file: %v\n", closeErr)
+		}
+	}()
 
 	// Convert log to JSON and write
 	logData, err := json.Marshal(log)
