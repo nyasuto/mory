@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/nyasuto/mory/internal/config"
 	"github.com/nyasuto/mory/internal/memory"
 )
@@ -97,6 +98,17 @@ func (m *MockMemoryStore) LogOperation(log *memory.OperationLog) error {
 
 // Additional test cases for better coverage
 
+// Helper function to extract text from CallToolResult content
+func getTextFromResult(result *mcpgo.CallToolResult) string {
+	if len(result.Content) == 0 {
+		return ""
+	}
+	if textContent, ok := mcpgo.AsTextContent(result.Content[0]); ok {
+		return textContent.Text
+	}
+	return ""
+}
+
 func TestNewServer(t *testing.T) {
 	cfg := config.DefaultConfig()
 	store := NewMockMemoryStore()
@@ -140,14 +152,9 @@ func TestHandleSaveMemory_Success(t *testing.T) {
 		t.Errorf("Expected 1 content item, got %d", len(result.Content))
 	}
 
-	content, ok := result.Content[0].(map[string]interface{})
-	if !ok {
-		t.Error("Expected content to be map[string]interface{}")
-	}
-
-	text, ok := content["text"].(string)
-	if !ok {
-		t.Error("Expected text field in content")
+	text := getTextFromResult(result)
+	if text == "" {
+		t.Error("Expected text content in result")
 	}
 
 	if !strings.Contains(text, "Memory saved successfully") {
@@ -185,8 +192,7 @@ func TestHandleSaveMemory_MissingCategory(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "category parameter is required") {
 		t.Errorf("Expected category error, got: %s", text)
@@ -211,8 +217,7 @@ func TestHandleSaveMemory_MissingValue(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "value parameter is required") {
 		t.Errorf("Expected value error, got: %s", text)
@@ -237,8 +242,7 @@ func TestHandleSaveMemory_NilStore(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "memory store not initialized") {
 		t.Errorf("Expected store error, got: %s", text)
@@ -275,8 +279,7 @@ func TestHandleGetMemory_Success(t *testing.T) {
 		t.Error("Expected success result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "Memory retrieved successfully") {
 		t.Errorf("Expected success message, got: %s", text)
@@ -317,8 +320,7 @@ func TestHandleGetMemory_NotFound(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "Memory not found") {
 		t.Errorf("Expected not found error, got: %s", text)
@@ -341,8 +343,7 @@ func TestHandleListMemories_Empty(t *testing.T) {
 		t.Error("Expected success result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "No memories stored yet") {
 		t.Errorf("Expected empty message, got: %s", text)
@@ -379,8 +380,7 @@ func TestHandleListMemories_WithData(t *testing.T) {
 		t.Error("Expected success result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "All stored memories") {
 		t.Errorf("Expected list header, got: %s", text)
@@ -431,8 +431,7 @@ func TestHandleListMemories_WithCategoryFilter(t *testing.T) {
 		t.Error("Expected success result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "Memories in category 'personal'") {
 		t.Errorf("Expected category filter header, got: %s", text)
@@ -467,8 +466,7 @@ func TestHandleGetMemory_MissingKey(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "key parameter is required") {
 		t.Errorf("Expected key error, got: %s", text)
@@ -493,8 +491,7 @@ func TestHandleGetMemory_EmptyKey(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "key parameter is required") {
 		t.Errorf("Expected key error, got: %s", text)
@@ -518,8 +515,7 @@ func TestHandleGetMemory_NilStore(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "memory store not initialized") {
 		t.Errorf("Expected store error, got: %s", text)
@@ -555,8 +551,7 @@ func TestHandleGetMemory_ByID(t *testing.T) {
 		t.Error("Expected success result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "Memory retrieved successfully") {
 		t.Errorf("Expected success message, got: %s", text)
@@ -582,8 +577,7 @@ func TestHandleListMemories_NilStore(t *testing.T) {
 		t.Error("Expected error result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "memory store not initialized") {
 		t.Errorf("Expected store error, got: %s", text)
@@ -622,8 +616,7 @@ func TestHandleListMemories_EmptyCategoryFilter(t *testing.T) {
 		t.Error("Expected success result")
 	}
 
-	content := result.Content[0].(map[string]interface{})
-	text := content["text"].(string)
+	text := getTextFromResult(result)
 
 	if !strings.Contains(text, "No memories found in category 'nonexistent'") {
 		t.Errorf("Expected empty category message, got: %s", text)
