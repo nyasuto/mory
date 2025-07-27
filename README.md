@@ -1,6 +1,8 @@
-# 🦔 Mory
+# 🦔 Mory - Personal Memory MCP Server
 
-ClaudeにパーソナルメモリーサービスWebAPIを追加するMCPサーバーです。ChatGPTのメモリ機能のように、会話を跨いで情報を記憶し、よりパーソナライズされた対話を実現します。
+Mory is a Model Context Protocol (MCP) server that provides personal memory functionality to Claude Desktop and other MCP-compatible clients. Store and retrieve information across conversations with ease.
+
+*ClaudeにパーソナルメモリーサービスWebAPIを追加するMCPサーバーです。ChatGPTのメモリ機能のように、会話を跨いで情報を記憶し、よりパーソナライズされた対話を実現します。*
 
 ## 🎯 プロジェクトビジョン
 
