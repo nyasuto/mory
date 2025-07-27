@@ -1,5 +1,7 @@
 # 🦔 Mory - Personal Memory MCP Server
 
+> **✅ Ready for Use!** Mory MVP Phase 1 is complete and ready for Claude Desktop integration.
+
 Mory is a Model Context Protocol (MCP) server that provides personal memory functionality to Claude Desktop and other MCP-compatible clients. Store and retrieve information across conversations with ease.
 
 *ClaudeにパーソナルメモリーサービスWebAPIを追加するMCPサーバーです。ChatGPTのメモリ機能のように、会話を跨いで情報を記憶し、よりパーソナライズされた対話を実現します。*
@@ -8,18 +10,18 @@ Mory is a Model Context Protocol (MCP) server that provides personal memory func
 
 Mory（モリー）は、ハリネズミのように小さくて賢い、あなただけのメモリアシスタントです。Claudeに永続的なメモリ機能を追加し、ユーザーの情報を記憶して文脈に応じた返答ができるようにします。すべてのデータはローカルに保存され、ユーザーが完全にコントロールできます。
 
-## 🚀 機能（予定）
+## 🚀 実装済み機能（MVP Phase 1）
 
-- **永続的メモリ**: 会話を跨いで個人情報を保存・取得
-- **スマート検索**: 複数の検索戦略による確実な情報取得
-- **プライバシー重視**: すべてのデータをローカル保存、クラウド依存なし
-- **カテゴリ・タグ管理**: 効率的な情報整理と検索
-- **バージョン管理**: 情報の更新履歴を追跡
-- **エクスポート/インポート**: データの完全な管理権限
+- ✅ **永続的メモリ**: 会話を跨いで個人情報を保存・取得
+- ✅ **プライバシー重視**: すべてのデータをローカル保存、クラウド依存なし
+- ✅ **カテゴリ管理**: 効率的な情報整理と検索
+- ✅ **操作ログ**: 情報の更新履歴を追跡
+- ✅ **エラーハンドリング**: 適切なエラーメッセージと安定動作
+- ✅ **MCPツール**: save_memory, get_memory, list_memories
 
 ## 📋 開発ロードマップ
 
-### 🦔 MVP Phase 1: 基本的なメモリ操作（現在）
+### ✅ MVP Phase 1: 基本的なメモリ操作（完了）
 - シンプルなキー・バリューストレージ
 - 基本的な保存・取得操作
 - ローカルJSONファイルストレージ
@@ -77,44 +79,54 @@ mory/
 └── README.md
 ```
 
-## 🔧 インストール
+## 🚀 クイックスタート
+
+> **📖 詳細なセットアップガイド**: [QUICKSTART.md](./QUICKSTART.md) をご覧ください
+
+### 1. インストール
 
 ```bash
 # リポジトリのクローン
-git clone https://github.com/yourusername/mory.git
+git clone https://github.com/nyasuto/mory.git
 cd mory
 
-# 依存関係のインストール
-go mod download
-
-# ビルド
+# 依存関係のインストールとビルド
 make build
 
-# 開発モードで実行
-make run
+# バイナリが生成されることを確認
+./bin/mory --version
 ```
 
-## 🚦 はじめ方
+### 2. Claude Desktop設定
 
-1. **Claude Desktopの設定**
+Claude Desktopの設定ファイルに以下を追加：
 
-Claude Desktopの設定に以下を追加：
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "mory": {
-      "command": "/path/to/mory/bin/mory"
+      "command": "/full/path/to/mory/bin/mory"
     }
   }
 }
 ```
 
-2. **メモリ機能の使用**
+### 3. テスト
 
-Claudeとの会話で：
-- 「私の誕生日は5月15日です」と伝える
-- 別の会話で「私の誕生日はいつ？」と聞く
+Claude Desktopを再起動後、以下を試してください：
+
+```
+私の誕生日は1990年5月15日です。記憶してください。
+↓
+save_memoryツールが実行され、保存成功メッセージが表示される
+
+私の誕生日はいつですか？
+↓
+get_memoryツールで「1990年5月15日」が返される
+```
 
 ## 📝 MVP Phase 1 仕様
 
@@ -355,13 +367,13 @@ MIT License - このプロジェクトを自由に使用・改変してくださ
 
 ---
 
-**現在のステータス**: 🦔 MVP Phase 1 開発中
+**現在のステータス**: ✅ MVP Phase 1 完了 - Claude Desktop対応済み
 
 **次のステップ**: 
-1. 基本的なストレージメカニズムの実装
-2. MCPツールハンドラーの作成
-3. Claude Desktopでのテスト
-4. フィードバックを元に改善
+1. ✅ 基本的なストレージメカニズムの実装
+2. ✅ MCPツールハンドラーの作成
+3. 🚧 Claude Desktopでのテスト ([QUICKSTART.md](./QUICKSTART.md) 参照)
+4. 📋 フィードバックを元にPhase 2機能検討
 
 ## 💬 お問い合わせ
 
