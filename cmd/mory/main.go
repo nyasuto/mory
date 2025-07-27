@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/nyasuto/mory/internal/config"
@@ -36,8 +37,25 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Initialize memory store
-	store := memory.NewJSONMemoryStore("data/memories.json", "data/operations.log")
+	// Initialize memory store with platform-appropriate data directory
+	log.Printf("[Main] Initializing memory store...")
+	pathProvider := &config.DataDirProvider{}
+	dataDir, err := pathProvider.EnsureDataDir()
+	if err != nil {
+		log.Printf("[Main] FATAL: Failed to initialize data directory: %v", err)
+		log.Fatalf("Failed to initialize data directory: %v", err)
+	}
+
+	memoriesFile := filepath.Join(dataDir, "memories.json")
+	logFile := filepath.Join(dataDir, "operations.log")
+
+	log.Printf("[Main] Memory store configuration:")
+	log.Printf("[Main]   Data directory: %s", dataDir)
+	log.Printf("[Main]   Memories file: %s", memoriesFile)
+	log.Printf("[Main]   Log file: %s", logFile)
+
+	store := memory.NewJSONMemoryStore(memoriesFile, logFile)
+	log.Printf("[Main] Memory store initialized successfully")
 
 	// Create MCP server
 	server := mcp.NewServer(cfg, store)
