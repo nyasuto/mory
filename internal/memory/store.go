@@ -66,6 +66,9 @@ func (s *JSONMemoryStore) Save(memory *Memory) (string, error) {
 				CreatedAt: m.CreatedAt,
 				UpdatedAt: m.UpdatedAt,
 			}
+			// Preserve ID and CreatedAt from existing memory
+			memory.ID = m.ID
+			memory.CreatedAt = m.CreatedAt
 			memories[i] = memory
 			break
 		}

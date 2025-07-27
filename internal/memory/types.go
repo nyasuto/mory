@@ -48,3 +48,12 @@ func GenerateID() string {
 func GenerateOperationID() string {
 	return fmt.Sprintf("op_%s", time.Now().Format("20060102150405.000"))
 }
+
+// MemoryNotFoundError represents an error when a memory is not found
+type MemoryNotFoundError struct {
+	Key string
+}
+
+func (e *MemoryNotFoundError) Error() string {
+	return fmt.Sprintf("memory not found: %s", e.Key)
+}
