@@ -120,18 +120,25 @@ Claudeとの会話で：
 
 1. **メモリの保存** 🦔
    - ツール: `save_memory`
-   - パラメータ: category, key, value
+   - パラメータ: category, value, key (オプション)
    - タイムスタンプ付きで情報を保存
+   - プロンプト: 会話中の重要な個人情報を自動的に判断して保存
 
 2. **メモリの取得** 
    - ツール: `get_memory`
-   - パラメータ: key
-   - 完全一致のみ取得
+   - パラメータ: key またはid
+   - 完全一致で取得
 
 3. **メモリの一覧表示**
    - ツール: `list_memories`
    - パラメータ: category (オプション)
-   - 保存されたすべての情報を表示
+   - 保存されたすべての情報を時系列で表示
+   - **重要**: ユーザーに関する質問があった場合、最初に必ず呼ぶべきツール
+
+4. **メモリの削除**
+   - ツール: `delete_memory`
+   - パラメータ: key またはid
+   - 指定したメモリを削除
 
 ### 保存ルール（Phase別）
 
@@ -156,36 +163,63 @@ Claudeが重要な個人情報を検出した場合：
 
 ```go
 type Memory struct {
-    ID        string    `json:"id"`
+    ID        string    `json:"id"`         // 自動生成: memory_20250127123456
     Category  string    `json:"category"`
-    Key       string    `json:"key"`
+    Key       string    `json:"key"`        // オプション: ユーザーフレンドリーなエイリアス
     Value     string    `json:"value"`
+    Tags      []string  `json:"tags"`       // 関連タグ（将来的な検索用）
     CreatedAt time.Time `json:"created_at"`
     UpdatedAt time.Time `json:"updated_at"`
+}
+
+type OperationLog struct {
+    Timestamp   time.Time `json:"timestamp"`
+    OperationID string    `json:"operation_id"`
+    Operation   string    `json:"operation"`
+    Key         string    `json:"key,omitempty"`
+    Before      *Memory   `json:"before,omitempty"`
+    After       *Memory   `json:"after,omitempty"`
+    Success     bool      `json:"success"`
+    Error       string    `json:"error,omitempty"`
 }
 ```
 
 ### ストレージ
 
 - シンプルなJSONファイル: `data/memories.json`
+- 操作ログ: `data/operations.log` (JSONL形式)
 - ファイルロックによる同期的な読み書き
 - 単一ユーザー想定（同時アクセス制御は最小限）
+
+### キー生成戦略
+
+IDは自動生成されるタイムスタンプベース：
+```go
+// 自動生成されるID例: memory_20250127123456
+id := fmt.Sprintf("memory_%s", time.Now().Format("20060102150405"))
+```
+
+これにより：
+- ユーザーがキーを考える必要なし
+- 時系列での管理が容易
+- 重複の心配なし
 
 ### 使用例
 
 ```go
-// メモリの保存
+// メモリの保存（IDは自動生成）
 memory := &Memory{
     Category: "personal",
-    Key:      "birthday",
+    Key:      "birthday",  // オプション：わかりやすいエイリアス
     Value:    "1990年5月15日",
 }
-err := store.Save(memory)
+id, err := store.Save(memory)  // "memory_20250127123456"が返される
 
-// メモリの取得
-result, err := store.Get("birthday")
+// メモリの取得（IDまたはキーで検索）
+result, err := store.Get("birthday")        // キーで検索
+result, err := store.GetByID("memory_20250127123456")  // IDで検索
 
-// カテゴリ別一覧
+// カテゴリ別一覧（時系列でソート）
 memories, err := store.List("personal")
 ```
 
@@ -195,13 +229,59 @@ memories, err := store.List("personal")
 ```
 ユーザー: 私の誕生日は5月15日です。覚えておいて
 Claude: [save_memory実行] はい、誕生日を5月15日として記憶しました。
+        保存ID: memory_20250127123456
 
 ユーザー: 私は大阪に住んでいます
 Claude: 大阪にお住まいなんですね。（保存しない）
 
 ユーザー: メモ：好きな色は青
 Claude: [save_memory実行] 好きな色が青であることを記憶しました。
+
+ユーザー: 私について何か知ってる？
+Claude: [list_memories実行] はい、以下の情報を記憶しています：
+        1. 誕生日: 5月15日 (2025-01-27 12:34:56)
+        2. 好きな色: 青 (2025-01-27 12:35:20)
 ```
+
+### プロンプト設計
+
+save_memoryツールには以下のような指示を含めます：
+
+```
+会話中に見つけた重要なユーザー情報を保存してください。
+明示的な保存指示がなくても、以下の情報は保存対象です：
+
+保存する情報の例：
+- 好み: 食べ物、音楽、趣味、ブランド
+- 興味: 学習中のトピック、関心事
+- 個人情報: 仕事、専門分野、居住地、家族
+- 現在の状況: プロジェクト、目標、最近の出来事
+- 性格・価値観: 思考スタイル、優先事項
+- 習慣・ライフスタイル: 日常のルーティン
+
+フォーマット: "User is [具体的な情報]"
+例: "User likes strawberry", "User is learning Go"
+```
+
+## 💡 設計思想
+
+Moryは「シンプルさ」を重視しています。複雑な要約・抽出ロジックは実装せず、LLMの賢さを信頼する設計です。
+
+### なぜシンプルで十分なのか
+
+実際の使用経験から、以下のことがわかっています：
+- LLMは適切なツールがあれば、賢く使い分けてくれる
+- 複雑な要約・統合ロジックは不要
+- 「重複を整理して」と言えばLLMが自動で処理
+- 適切なプロンプトがあれば、想定以上の使い方をしてくれる
+
+### 操作ログによる改善
+
+すべての操作を記録することで：
+- 使用パターンの分析
+- デバッグの容易さ
+- 将来的なUndo機能の基盤
+- ユーザーとの協働的な改善
 
 ## 🔒 セキュリティとプライバシー
 
@@ -249,6 +329,18 @@ make test
 ## 🦔 なぜ「Mory」？
 
 ハリネズミは小さな体に多くの針（記憶）を持っています。Moryも同じように、コンパクトながら多くの大切な記憶を安全に保管します。
+
+## 🎨 将来的な拡張
+
+### Obsidian連携（計画中）
+- `[[概念]]`記法でのリンク生成
+- 知識グラフの自動構築
+- Markdownエクスポート機能
+
+### 高度な検索（Phase 2以降）
+- 類義語での検索
+- 時間範囲での絞り込み
+- 関連メモリの提案
 
 ## 📄 ライセンス
 
