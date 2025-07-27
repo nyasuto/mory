@@ -68,8 +68,8 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 			},
 		},
 	}
-	mcpServer.AddTool(saveMemoryTool, func(arguments map[string]interface{}) (*mcp.CallToolResult, error) {
-		return s.handleSaveMemory(context.Background(), arguments)
+	mcpServer.AddTool(saveMemoryTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return s.handleSaveMemory(ctx, request.GetArguments())
 	})
 
 	// get_memory tool
@@ -86,8 +86,8 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 			},
 		},
 	}
-	mcpServer.AddTool(getMemoryTool, func(arguments map[string]interface{}) (*mcp.CallToolResult, error) {
-		return s.handleGetMemory(context.Background(), arguments)
+	mcpServer.AddTool(getMemoryTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return s.handleGetMemory(ctx, request.GetArguments())
 	})
 
 	// list_memories tool
@@ -104,8 +104,8 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 			},
 		},
 	}
-	mcpServer.AddTool(listMemoriesTool, func(arguments map[string]interface{}) (*mcp.CallToolResult, error) {
-		return s.handleListMemories(context.Background(), arguments)
+	mcpServer.AddTool(listMemoriesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return s.handleListMemories(ctx, request.GetArguments())
 	})
 }
 
@@ -113,28 +113,12 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 func (s *Server) handleSaveMemory(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
 	category, ok := arguments["category"].(string)
 	if !ok || category == "" {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": "Error: category parameter is required and must be a non-empty string",
-				},
-			},
-		}, nil
+		return mcp.NewToolResultError("category parameter is required and must be a non-empty string"), nil
 	}
 
 	value, ok := arguments["value"].(string)
 	if !ok || value == "" {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": "Error: value parameter is required and must be a non-empty string",
-				},
-			},
-		}, nil
+		return mcp.NewToolResultError("value parameter is required and must be a non-empty string"), nil
 	}
 
 	// Key is optional
@@ -153,28 +137,12 @@ func (s *Server) handleSaveMemory(ctx context.Context, arguments map[string]inte
 
 	// Save memory using the store
 	if s.store == nil {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": "Error: memory store not initialized",
-				},
-			},
-		}, nil
+		return mcp.NewToolResultError("memory store not initialized"), nil
 	}
 
 	id, err := s.store.Save(mem)
 	if err != nil {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": fmt.Sprintf("Error: failed to save memory: %v", err),
-				},
-			},
-		}, nil
+		return mcp.NewToolResultErrorFromErr("failed to save memory", err), nil
 	}
 
 	// Success response
@@ -187,42 +155,19 @@ func (s *Server) handleSaveMemory(ctx context.Context, arguments map[string]inte
 			category, value, id)
 	}
 
-	return &mcp.CallToolResult{
-		Content: []interface{}{
-			map[string]interface{}{
-				"type": "text",
-				"text": responseText,
-			},
-		},
-	}, nil
+	return mcp.NewToolResultText(responseText), nil
 }
 
 // handleGetMemory handles the get_memory tool
 func (s *Server) handleGetMemory(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
 	key, ok := arguments["key"].(string)
 	if !ok || key == "" {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": "Error: key parameter is required and must be a non-empty string",
-				},
-			},
-		}, nil
+		return mcp.NewToolResultError("key parameter is required and must be a non-empty string"), nil
 	}
 
 	// Check if store is initialized
 	if s.store == nil {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": "Error: memory store not initialized",
-				},
-			},
-		}, nil
+		return mcp.NewToolResultError("memory store not initialized"), nil
 	}
 
 	// Try to get memory by key first
@@ -231,15 +176,7 @@ func (s *Server) handleGetMemory(ctx context.Context, arguments map[string]inter
 		// If not found by key, try by ID
 		memory, err = s.store.GetByID(key)
 		if err != nil {
-			return &mcp.CallToolResult{
-				IsError: true,
-				Content: []interface{}{
-					map[string]interface{}{
-						"type": "text",
-						"text": fmt.Sprintf("❌ Memory not found with key or ID: %s", key),
-					},
-				},
-			}, nil
+			return mcp.NewToolResultError(fmt.Sprintf("❌ Memory not found with key or ID: %s", key)), nil
 		}
 	}
 
@@ -262,14 +199,7 @@ func (s *Server) handleGetMemory(ctx context.Context, arguments map[string]inter
 		responseText += fmt.Sprintf("\n🏷️ Tags: %v", memory.Tags)
 	}
 
-	return &mcp.CallToolResult{
-		Content: []interface{}{
-			map[string]interface{}{
-				"type": "text",
-				"text": responseText,
-			},
-		},
-	}, nil
+	return mcp.NewToolResultText(responseText), nil
 }
 
 // handleListMemories handles the list_memories tool
@@ -282,29 +212,13 @@ func (s *Server) handleListMemories(ctx context.Context, arguments map[string]in
 
 	// Check if store is initialized
 	if s.store == nil {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": "Error: memory store not initialized",
-				},
-			},
-		}, nil
+		return mcp.NewToolResultError("memory store not initialized"), nil
 	}
 
 	// Get memories from store
 	memories, err := s.store.List(category)
 	if err != nil {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": fmt.Sprintf("Error: failed to list memories: %v", err),
-				},
-			},
-		}, nil
+		return mcp.NewToolResultErrorFromErr("failed to list memories", err), nil
 	}
 
 	// Format response
@@ -346,12 +260,5 @@ func (s *Server) handleListMemories(ctx context.Context, arguments map[string]in
 		}
 	}
 
-	return &mcp.CallToolResult{
-		Content: []interface{}{
-			map[string]interface{}{
-				"type": "text",
-				"text": responseText,
-			},
-		},
-	}, nil
+	return mcp.NewToolResultText(responseText), nil
 }
