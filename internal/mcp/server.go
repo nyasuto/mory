@@ -89,6 +89,24 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 	mcpServer.AddTool(getMemoryTool, func(arguments map[string]interface{}) (*mcp.CallToolResult, error) {
 		return s.handleGetMemory(context.Background(), arguments)
 	})
+
+	// list_memories tool
+	listMemoriesTool := mcp.Tool{
+		Name:        "list_memories",
+		Description: "List all memories or filter by category (chronologically sorted)",
+		InputSchema: mcp.ToolInputSchema{
+			Type: "object",
+			Properties: map[string]any{
+				"category": map[string]any{
+					"type":        "string",
+					"description": "Optional category filter",
+				},
+			},
+		},
+	}
+	mcpServer.AddTool(listMemoriesTool, func(arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+		return s.handleListMemories(context.Background(), arguments)
+	})
 }
 
 // handleSaveMemory handles the save_memory tool
@@ -242,6 +260,90 @@ func (s *Server) handleGetMemory(ctx context.Context, arguments map[string]inter
 	// Add tags if present
 	if len(memory.Tags) > 0 {
 		responseText += fmt.Sprintf("\n🏷️ Tags: %v", memory.Tags)
+	}
+
+	return &mcp.CallToolResult{
+		Content: []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": responseText,
+			},
+		},
+	}, nil
+}
+
+// handleListMemories handles the list_memories tool
+func (s *Server) handleListMemories(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+	// Category is optional
+	category := ""
+	if categoryArg, ok := arguments["category"].(string); ok {
+		category = categoryArg
+	}
+
+	// Check if store is initialized
+	if s.store == nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "Error: memory store not initialized",
+				},
+			},
+		}, nil
+	}
+
+	// Get memories from store
+	memories, err := s.store.List(category)
+	if err != nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": fmt.Sprintf("Error: failed to list memories: %v", err),
+				},
+			},
+		}, nil
+	}
+
+	// Format response
+	var responseText string
+	if len(memories) == 0 {
+		if category != "" {
+			responseText = fmt.Sprintf("📋 No memories found in category '%s'", category)
+		} else {
+			responseText = "📋 No memories stored yet"
+		}
+	} else {
+		if category != "" {
+			responseText = fmt.Sprintf("📋 Memories in category '%s' (total: %d):\n\n", category, len(memories))
+		} else {
+			responseText = fmt.Sprintf("📋 All stored memories (total: %d):\n\n", len(memories))
+		}
+
+		for i, mem := range memories {
+			var displayName string
+			if mem.Key != "" {
+				displayName = mem.Key
+			} else {
+				displayName = mem.ID
+			}
+			
+			responseText += fmt.Sprintf("%d. %s: %s (%s)\n", 
+				i+1, displayName, mem.Value, 
+				mem.CreatedAt.Format("2006-01-02 15:04:05"))
+			
+			if mem.Category != "" {
+				responseText += fmt.Sprintf("   📝 Category: %s\n", mem.Category)
+			}
+			
+			if len(mem.Tags) > 0 {
+				responseText += fmt.Sprintf("   🏷️ Tags: %v\n", mem.Tags)
+			}
+			
+			responseText += "\n"
+		}
 	}
 
 	return &mcp.CallToolResult{
