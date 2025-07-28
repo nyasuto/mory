@@ -172,6 +172,11 @@ func (s *JSONMemoryStore) List(category string) ([]*Memory, error) {
 	return result, nil
 }
 
+// Search performs search across memories
+func (s *JSONMemoryStore) Search(query SearchQuery) ([]*SearchResult, error) {
+	return SearchMemories(s, query)
+}
+
 // Delete removes a memory by key
 func (s *JSONMemoryStore) Delete(key string) error {
 	s.mutex.Lock()

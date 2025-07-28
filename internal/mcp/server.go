@@ -107,6 +107,29 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 	mcpServer.AddTool(listMemoriesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return s.handleListMemories(ctx, request.GetArguments())
 	})
+
+	// search_memories tool
+	searchMemoriesTool := mcp.Tool{
+		Name:        "search_memories",
+		Description: "Search memories with text queries and optional category filter",
+		InputSchema: mcp.ToolInputSchema{
+			Type: "object",
+			Properties: map[string]any{
+				"query": map[string]any{
+					"type":        "string",
+					"description": "Search query string",
+				},
+				"category": map[string]any{
+					"type":        "string",
+					"description": "Optional category filter",
+				},
+			},
+			Required: []string{"query"},
+		},
+	}
+	mcpServer.AddTool(searchMemoriesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return s.handleSearchMemories(ctx, request.GetArguments())
+	})
 }
 
 // handleSaveMemory handles the save_memory tool
@@ -267,5 +290,80 @@ func (s *Server) handleListMemories(ctx context.Context, arguments map[string]in
 		}
 	}
 
+	return mcp.NewToolResultText(responseText), nil
+}
+
+// handleSearchMemories handles the search_memories tool
+func (s *Server) handleSearchMemories(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+	// Query is required
+	query, ok := arguments["query"].(string)
+	if !ok || query == "" {
+		return mcp.NewToolResultError("query parameter is required and must be a non-empty string"), nil
+	}
+
+	// Category is optional
+	category := ""
+	if categoryArg, ok := arguments["category"].(string); ok {
+		category = categoryArg
+	}
+
+	// Check if store is initialized
+	if s.store == nil {
+		return mcp.NewToolResultError("memory store not initialized"), nil
+	}
+
+	// Create search query
+	searchQuery := memory.SearchQuery{
+		Query:    query,
+		Category: category,
+	}
+
+	// Perform search
+	results, err := s.store.Search(searchQuery)
+	if err != nil {
+		log.Printf("[SearchMemoriesTool] ERROR: Failed to search memories: %v", err)
+		return mcp.NewToolResultErrorFromErr("failed to search memories", err), nil
+	}
+
+	// Format response
+	var responseText string
+	if len(results) == 0 {
+		if category != "" {
+			responseText = fmt.Sprintf("🔍 No memories found for query '%s' in category '%s'", query, category)
+		} else {
+			responseText = fmt.Sprintf("🔍 No memories found for query '%s'", query)
+		}
+	} else {
+		if category != "" {
+			responseText = fmt.Sprintf("🔍 Search results for '%s' in category '%s' (found: %d):\n\n", query, category, len(results))
+		} else {
+			responseText = fmt.Sprintf("🔍 Search results for '%s' (found: %d):\n\n", query, len(results))
+		}
+
+		for i, result := range results {
+			mem := result.Memory
+			var displayName string
+			if mem.Key != "" {
+				displayName = mem.Key
+			} else {
+				displayName = mem.ID
+			}
+
+			responseText += fmt.Sprintf("%d. %s: %s (score: %.2f)\n",
+				i+1, displayName, mem.Value, result.Score)
+
+			responseText += fmt.Sprintf("   📝 Category: %s\n", mem.Category)
+			responseText += fmt.Sprintf("   🆔 ID: %s\n", mem.ID)
+			responseText += fmt.Sprintf("   📅 Created: %s\n", mem.CreatedAt.Format("2006-01-02 15:04:05"))
+
+			if len(mem.Tags) > 0 {
+				responseText += fmt.Sprintf("   🏷️ Tags: %v\n", mem.Tags)
+			}
+
+			responseText += "\n"
+		}
+	}
+
+	log.Printf("[SearchMemoriesTool] Search completed: query='%s', category='%s', results=%d", query, category, len(results))
 	return mcp.NewToolResultText(responseText), nil
 }
