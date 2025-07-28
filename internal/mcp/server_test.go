@@ -96,6 +96,29 @@ func (m *MockMemoryStore) LogOperation(log *memory.OperationLog) error {
 	return nil
 }
 
+func (m *MockMemoryStore) Search(query memory.SearchQuery) ([]*memory.SearchResult, error) {
+	// Mock implementation - simple search
+	var results []*memory.SearchResult
+
+	for _, mem := range m.memories {
+		// Simple string matching for mock
+		if strings.Contains(strings.ToLower(mem.Value), strings.ToLower(query.Query)) ||
+			strings.Contains(strings.ToLower(mem.Key), strings.ToLower(query.Query)) ||
+			strings.Contains(strings.ToLower(mem.Category), strings.ToLower(query.Query)) {
+
+			// Apply category filter if specified
+			if query.Category == "" || mem.Category == query.Category {
+				results = append(results, &memory.SearchResult{
+					Memory: mem,
+					Score:  1.0, // Simple mock score
+				})
+			}
+		}
+	}
+
+	return results, nil
+}
+
 // Additional test cases for better coverage
 
 // Helper function to extract text from CallToolResult content

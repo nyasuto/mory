@@ -34,6 +34,7 @@ type MemoryStore interface {
 	Get(key string) (*Memory, error)
 	GetByID(id string) (*Memory, error) // ID検索メソッド追加
 	List(category string) ([]*Memory, error)
+	Search(query SearchQuery) ([]*SearchResult, error) // 検索メソッド追加
 	Delete(key string) error
 	DeleteByID(id string) error           // ID削除メソッド追加
 	LogOperation(log *OperationLog) error // 操作ログ記録メソッド追加
