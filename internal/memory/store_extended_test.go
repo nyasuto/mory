@@ -191,7 +191,7 @@ func TestGenerateID_Uniqueness(t *testing.T) {
 		if !strings.HasPrefix(id, "memory_") || len(id) < 15 {
 			t.Errorf("GenerateID produced invalid format: %s", id)
 		}
-		
+
 		// Add small delay to ensure different nanosecond timestamps in CI
 		time.Sleep(1 * time.Microsecond)
 	}
@@ -214,7 +214,7 @@ func TestGenerateOperationID_Uniqueness(t *testing.T) {
 		if !strings.HasPrefix(id, "op_") || len(id) < 10 {
 			t.Errorf("GenerateOperationID produced invalid format: %s", id)
 		}
-		
+
 		// Add small delay to ensure different nanosecond timestamps in CI
 		time.Sleep(1 * time.Microsecond)
 	}
