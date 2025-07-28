@@ -1,6 +1,6 @@
 # Binaries
 /bin/
-mory
+/mory
 *.exe
 
 # Go build artifacts
@@ -8,9 +8,10 @@ mory
 *.a
 *.so
 
-# Data files (local storage)
+# Data files (local storage - actual user data)
 /data/
-*.json
+data/memories.json
+data/operations.log
 
 # IDE files
 .vscode/
@@ -22,15 +23,28 @@ mory
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs (actual runtime logs, not test logs)
+operations.log
 *.log
 
-# Config files (can contain sensitive data)
+# Config files (actual runtime config with sensitive data)
 config.json
 
-# Test coverage
-coverage.out
-coverage.html
+# Test coverage files
+coverage*.out
+coverage*.html
 
 # Go module cache
 go.sum.tmp
+
+# Temporary files
+*.tmp
+.tmp/
+
+# Local development files
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/

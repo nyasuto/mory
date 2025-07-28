@@ -21,20 +21,38 @@ var (
 	commit  = "unknown"
 )
 
-func main() {
-	// Parse command line flags
-	var showVersion = flag.Bool("version", false, "Show version information")
-	flag.Parse()
+// RunOptions contains configuration for running the application
+type RunOptions struct {
+	Args       []string
+	ConfigPath string
+}
+
+// Run executes the main application logic with the given options
+func Run(opts RunOptions) error {
+	// Set up custom flag set for testing
+	flagSet := flag.NewFlagSet("mory", flag.ContinueOnError)
+	showVersion := flagSet.Bool("version", false, "Show version information")
+
+	// Parse provided arguments
+	if err := flagSet.Parse(opts.Args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
 
 	// Handle version flag
 	if *showVersion {
 		fmt.Printf("Mory %s (commit: %s)\n", version, commit)
-		os.Exit(0)
+		return nil
 	}
+
 	// Load configuration
-	cfg, err := config.LoadConfig("config.json")
+	configPath := opts.ConfigPath
+	if configPath == "" {
+		configPath = "config.json"
+	}
+
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Initialize memory store with platform-appropriate data directory
@@ -43,7 +61,7 @@ func main() {
 	dataDir, err := pathProvider.EnsureDataDir()
 	if err != nil {
 		log.Printf("[Main] FATAL: Failed to initialize data directory: %v", err)
-		log.Fatalf("Failed to initialize data directory: %v", err)
+		return fmt.Errorf("failed to initialize data directory: %w", err)
 	}
 
 	memoriesFile := filepath.Join(dataDir, "memories.json")
@@ -76,6 +94,30 @@ func main() {
 
 	// Start server
 	if err := server.Start(ctx); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		return fmt.Errorf("server failed: %w", err)
+	}
+
+	return nil
+}
+
+func main() {
+	// Parse command line flags
+	var showVersion = flag.Bool("version", false, "Show version information")
+	flag.Parse()
+
+	// Handle version flag
+	if *showVersion {
+		fmt.Printf("Mory %s (commit: %s)\n", version, commit)
+		os.Exit(0)
+	}
+
+	// Run with default options
+	opts := RunOptions{
+		Args:       os.Args[1:],
+		ConfigPath: "config.json",
+	}
+
+	if err := Run(opts); err != nil {
+		log.Fatalf("Application failed: %v", err)
 	}
 }
