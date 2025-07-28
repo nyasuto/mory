@@ -120,6 +120,25 @@ release: clean fmt test
 	CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -a -installsuffix cgo -o $(BINARY_PATH) $(CMD_PATH)
 	@echo "Release binary built: $(BINARY_PATH)"
 
+# Install git hooks
+.PHONY: install-hooks
+install-hooks:
+	@echo "Installing git hooks..."
+	@if [ ! -f .git/hooks/pre-commit ]; then \
+		echo "Error: Git hooks not found. Please run this from the repository root."; \
+		exit 1; \
+	fi
+	@echo "✓ Pre-commit hook installed"
+	@echo ""
+	@echo "Git hooks are now active and will run automatically on commit."
+	@echo "The hooks will:"
+	@echo "  - Format code (go fmt)"
+	@echo "  - Run linter (golangci-lint)"
+	@echo "  - Run tests"
+	@echo "  - Tidy modules"
+	@echo ""
+	@echo "To bypass hooks (not recommended): git commit --no-verify"
+
 # Help
 .PHONY: help
 help:
@@ -137,4 +156,5 @@ help:
 	@echo "  dev-setup      - Setup development environment"
 	@echo "  quality        - Run all quality checks (fmt, lint, test)"
 	@echo "  release        - Build optimized release binary"
+	@echo "  install-hooks  - Install git hooks for quality checks"
 	@echo "  help           - Show this help"
