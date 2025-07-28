@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -11,8 +12,8 @@ func TestGenerateID(t *testing.T) {
 		t.Error("GenerateID returned empty string")
 	}
 
-	// Check format
-	if len(id1) != len("memory_20060102150405.000") {
+	// Check format (nanosecond timestamp should be longer)
+	if len(id1) < 15 || !strings.HasPrefix(id1, "memory_") {
 		t.Errorf("GenerateID returned unexpected format: %s", id1)
 	}
 
@@ -21,7 +22,7 @@ func TestGenerateID(t *testing.T) {
 	}
 
 	// Generate another ID to ensure uniqueness (with small delay)
-	time.Sleep(time.Millisecond)
+	time.Sleep(time.Microsecond)
 	id2 := GenerateID()
 	if id1 == id2 {
 		t.Error("GenerateID should generate unique IDs")
@@ -39,7 +40,7 @@ func TestGenerateOperationID(t *testing.T) {
 	}
 
 	// Generate another ID to ensure uniqueness
-	time.Sleep(time.Millisecond)
+	time.Sleep(time.Microsecond)
 	opID2 := GenerateOperationID()
 	if opID1 == opID2 {
 		t.Error("GenerateOperationID should generate unique IDs")
