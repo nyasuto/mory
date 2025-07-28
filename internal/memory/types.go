@@ -41,12 +41,12 @@ type MemoryStore interface {
 
 // GenerateID generates a timestamp-based unique ID
 func GenerateID() string {
-	return fmt.Sprintf("memory_%s", time.Now().Format("20060102150405.000"))
+	return fmt.Sprintf("memory_%d", time.Now().UnixNano())
 }
 
 // GenerateOperationID generates a unique operation ID
 func GenerateOperationID() string {
-	return fmt.Sprintf("op_%s", time.Now().Format("20060102150405.000"))
+	return fmt.Sprintf("op_%d", time.Now().UnixNano())
 }
 
 // MemoryNotFoundError represents an error when a memory is not found
