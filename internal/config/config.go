@@ -6,11 +6,20 @@ import (
 	"path/filepath"
 )
 
+// ObsidianConfig represents Obsidian integration configuration
+type ObsidianConfig struct {
+	VaultPath    string `json:"vault_path"`
+	AutoImport   bool   `json:"auto_import"`
+	SyncInterval string `json:"sync_interval"`
+	TemplateDir  string `json:"template_dir"`
+}
+
 // Config represents the application configuration
 type Config struct {
-	DataPath   string `json:"data_path"`
-	ServerPort int    `json:"server_port"`
-	LogLevel   string `json:"log_level"`
+	DataPath   string          `json:"data_path"`
+	ServerPort int             `json:"server_port"`
+	LogLevel   string          `json:"log_level"`
+	Obsidian   *ObsidianConfig `json:"obsidian,omitempty"`
 }
 
 // DefaultConfig returns a default configuration
