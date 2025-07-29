@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nyasuto/mory/internal/config"
 	"github.com/nyasuto/mory/internal/memory"
+	"github.com/nyasuto/mory/internal/obsidian"
 )
 
 // Server represents the MCP server for Mory
@@ -130,6 +131,11 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 	mcpServer.AddTool(searchMemoriesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return s.handleSearchMemories(ctx, request.GetArguments())
 	})
+
+	// Obsidianツールの登録（Obsidian設定が有効な場合のみ）
+	if s.config.Obsidian != nil && s.config.Obsidian.VaultPath != "" {
+		s.registerObsidianTools(mcpServer)
+	}
 }
 
 // handleSaveMemory handles the save_memory tool
@@ -366,4 +372,244 @@ func (s *Server) handleSearchMemories(ctx context.Context, arguments map[string]
 
 	log.Printf("[SearchMemoriesTool] Search completed: query='%s', category='%s', results=%d", query, category, len(results))
 	return mcp.NewToolResultText(responseText), nil
+}
+
+// registerObsidianTools registers Obsidian-related MCP tools
+func (s *Server) registerObsidianTools(mcpServer *server.MCPServer) {
+	// obsidian_import tool
+	importTool := mcp.Tool{
+		Name:        "obsidian_import",
+		Description: "Import Obsidian notes into Mory memory storage",
+		InputSchema: mcp.ToolInputSchema{
+			Type: "object",
+			Properties: map[string]any{
+				"import_type": map[string]any{
+					"type":        "string",
+					"description": "Type of import: 'vault' (all files), 'category' (specific folder), or 'file' (single file)",
+					"enum":        []string{"vault", "category", "file"},
+				},
+				"path": map[string]any{
+					"type":        "string",
+					"description": "Specific file path (for 'file' type) or category name (for 'category' type)",
+				},
+			},
+			Required: []string{"import_type"},
+		},
+	}
+	mcpServer.AddTool(importTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return s.handleObsidianImport(ctx, request.GetArguments())
+	})
+
+	// generate_obsidian_note tool
+	generateTool := mcp.Tool{
+		Name:        "generate_obsidian_note",
+		Description: "Generate an Obsidian note from memories in a specific category",
+		InputSchema: mcp.ToolInputSchema{
+			Type: "object",
+			Properties: map[string]any{
+				"category": map[string]any{
+					"type":        "string",
+					"description": "Category of memories to include in the note",
+				},
+				"title": map[string]any{
+					"type":        "string",
+					"description": "Title for the generated note",
+				},
+				"template": map[string]any{
+					"type":        "string",
+					"description": "Note template: 'summary', 'diary', or 'list'",
+					"enum":        []string{"summary", "diary", "list"},
+				},
+			},
+			Required: []string{"category", "title"},
+		},
+	}
+	mcpServer.AddTool(generateTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return s.handleGenerateObsidianNote(ctx, request.GetArguments())
+	})
+}
+
+// handleObsidianImport handles the obsidian_import tool
+func (s *Server) handleObsidianImport(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+	if s.config.Obsidian == nil || s.config.Obsidian.VaultPath == "" {
+		return mcp.NewToolResultError("Obsidian vault path is not configured"), nil
+	}
+
+	importType, ok := arguments["import_type"].(string)
+	if !ok {
+		return mcp.NewToolResultError("import_type parameter is required"), nil
+	}
+
+	// Use the store directly as it implements the MemoryStore interface
+	importer := obsidian.NewImporter(s.config.Obsidian.VaultPath, s.store)
+
+	var result *obsidian.ImportResult
+	var err error
+
+	switch importType {
+	case "vault":
+		result, err = importer.ImportVault()
+	case "category":
+		category, ok := arguments["path"].(string)
+		if !ok || category == "" {
+			return mcp.NewToolResultError("path parameter is required for category import"), nil
+		}
+		result, err = importer.ImportByCategory(category)
+	case "file":
+		filePath, ok := arguments["path"].(string)
+		if !ok || filePath == "" {
+			return mcp.NewToolResultError("path parameter is required for file import"), nil
+		}
+		mem, err := importer.ImportFile(filePath)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to import file: %v", err)), nil
+		}
+
+		responseText := fmt.Sprintf("✅ Successfully imported file: %s\n", filePath)
+		responseText += fmt.Sprintf("📝 Memory ID: %s\n", mem.ID)
+		responseText += fmt.Sprintf("📂 Category: %s\n", mem.Category)
+		responseText += fmt.Sprintf("🔑 Key: %s\n", mem.Key)
+
+		return mcp.NewToolResultText(responseText), nil
+	default:
+		return mcp.NewToolResultError("invalid import_type: must be 'vault', 'category', or 'file'"), nil
+	}
+
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("import failed: %v", err)), nil
+	}
+
+	// Format result
+	responseText := "✅ Import completed successfully!\n\n"
+	responseText += "📊 Statistics:\n"
+	responseText += fmt.Sprintf("   - Total files found: %d\n", result.TotalFiles)
+	responseText += fmt.Sprintf("   - Successfully imported: %d\n", result.ImportedFiles)
+	responseText += fmt.Sprintf("   - Skipped files: %d\n", result.SkippedFiles)
+
+	if len(result.Errors) > 0 {
+		responseText += "\n⚠️ Errors encountered:\n"
+		for _, errMsg := range result.Errors {
+			responseText += fmt.Sprintf("   - %s\n", errMsg)
+		}
+	}
+
+	if len(result.ImportedMemories) > 0 {
+		responseText += "\n📚 Imported memories:\n"
+		for i, mem := range result.ImportedMemories {
+			if i >= 10 { // Limit display to first 10
+				responseText += fmt.Sprintf("   ... and %d more\n", len(result.ImportedMemories)-10)
+				break
+			}
+			responseText += fmt.Sprintf("   - %s (%s)\n", mem.Key, mem.Category)
+		}
+	}
+
+	log.Printf("[ObsidianImport] Import completed: type=%s, imported=%d, errors=%d", importType, result.ImportedFiles, len(result.Errors))
+	return mcp.NewToolResultText(responseText), nil
+}
+
+// handleGenerateObsidianNote handles the generate_obsidian_note tool
+func (s *Server) handleGenerateObsidianNote(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+	category, ok := arguments["category"].(string)
+	if !ok || category == "" {
+		return mcp.NewToolResultError("category parameter is required"), nil
+	}
+
+	title, ok := arguments["title"].(string)
+	if !ok || title == "" {
+		return mcp.NewToolResultError("title parameter is required"), nil
+	}
+
+	template := "list" // default template
+	if templateArg, ok := arguments["template"].(string); ok {
+		template = templateArg
+	}
+
+	// Get memories from the specified category
+	memories, err := s.store.List(category)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get memories: %v", err)), nil
+	}
+
+	if len(memories) == 0 {
+		return mcp.NewToolResultError(fmt.Sprintf("no memories found in category '%s'", category)), nil
+	}
+
+	// Generate note content based on template
+	var noteContent string
+	switch template {
+	case "summary":
+		noteContent = s.generateSummaryNote(title, category, memories)
+	case "diary":
+		noteContent = s.generateDiaryNote(title, category, memories)
+	case "list":
+		noteContent = s.generateListNote(title, category, memories)
+	default:
+		return mcp.NewToolResultError("invalid template: must be 'summary', 'diary', or 'list'"), nil
+	}
+
+	log.Printf("[GenerateObsidianNote] Generated note: title=%s, category=%s, template=%s, memories=%d", title, category, template, len(memories))
+	return mcp.NewToolResultText(noteContent), nil
+}
+
+// generateSummaryNote generates a summary-style note
+func (s *Server) generateSummaryNote(title, category string, memories []*memory.Memory) string {
+	content := fmt.Sprintf("# %s\n\n", title)
+	content += "---\n"
+	content += fmt.Sprintf("category: %s\n", category)
+	content += fmt.Sprintf("generated: %s\n", "{{date}}")
+	content += fmt.Sprintf("tags: [summary, %s]\n", category)
+	content += "---\n\n"
+	content += "## Summary\n\n"
+	content += fmt.Sprintf("This note contains a summary of %d memories from the '%s' category.\n\n", len(memories), category)
+
+	for _, mem := range memories {
+		content += fmt.Sprintf("### %s\n\n", mem.Key)
+		content += fmt.Sprintf("%s\n\n", mem.Value)
+		if len(mem.Tags) > 0 {
+			content += fmt.Sprintf("*Tags: %v*\n\n", mem.Tags)
+		}
+	}
+
+	return content
+}
+
+// generateDiaryNote generates a diary-style note
+func (s *Server) generateDiaryNote(title, category string, memories []*memory.Memory) string {
+	content := fmt.Sprintf("# %s\n\n", title)
+	content += "---\n"
+	content += fmt.Sprintf("category: %s\n", category)
+	content += fmt.Sprintf("generated: %s\n", "{{date}}")
+	content += fmt.Sprintf("tags: [diary, %s]\n", category)
+	content += "---\n\n"
+
+	for _, mem := range memories {
+		content += fmt.Sprintf("## %s\n\n", mem.CreatedAt.Format("2006-01-02"))
+		content += fmt.Sprintf("**%s**\n\n", mem.Key)
+		content += fmt.Sprintf("%s\n\n", mem.Value)
+	}
+
+	return content
+}
+
+// generateListNote generates a list-style note
+func (s *Server) generateListNote(title, category string, memories []*memory.Memory) string {
+	content := fmt.Sprintf("# %s\n\n", title)
+	content += "---\n"
+	content += fmt.Sprintf("category: %s\n", category)
+	content += fmt.Sprintf("generated: %s\n", "{{date}}")
+	content += fmt.Sprintf("tags: [list, %s]\n", category)
+	content += "---\n\n"
+	content += fmt.Sprintf("## Memories in %s\n\n", category)
+
+	for i, mem := range memories {
+		content += fmt.Sprintf("%d. **%s** - %s\n", i+1, mem.Key, mem.Value)
+		if len(mem.Tags) > 0 {
+			content += fmt.Sprintf("   - Tags: %v\n", mem.Tags)
+		}
+		content += fmt.Sprintf("   - Created: %s\n", mem.CreatedAt.Format("2006-01-02 15:04:05"))
+		content += "\n"
+	}
+
+	return content
 }
