@@ -368,3 +368,351 @@ func TestImportWithErrors(t *testing.T) {
 		t.Error("Expected errors to be recorded")
 	}
 }
+
+func TestImportVaultWithOptions(t *testing.T) {
+	// Create temporary directory structure for test
+	tempDir, err := os.MkdirTemp("", "obsidian_options_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	// Create directory structure
+	personalDir := filepath.Join(tempDir, "personal")
+	workDir := filepath.Join(tempDir, "work")
+	_ = os.MkdirAll(personalDir, 0755)
+	_ = os.MkdirAll(workDir, 0755)
+
+	// Create test files
+	files := map[string]string{
+		filepath.Join(personalDir, "personal-note.md"): `---
+category: personal
+tags: ["diary"]
+---
+# Personal Note
+This is a personal note.`,
+
+		filepath.Join(workDir, "work-note.md"): `# Work Note
+This is a work note.`,
+	}
+
+	for filePath, content := range files {
+		err := os.WriteFile(filePath, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write test file %s: %v", filePath, err)
+		}
+	}
+
+	t.Run("DryRun", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		opts := &ImportOptions{
+			DryRun:         true,
+			SkipDuplicates: true,
+		}
+
+		result, err := importer.ImportVaultWithOptions(opts)
+		if err != nil {
+			t.Fatalf("Failed to import vault with dry run: %v", err)
+		}
+
+		// Should find files but not save them
+		if result.TotalFiles != 2 {
+			t.Errorf("Expected 2 total files, got %d", result.TotalFiles)
+		}
+		if result.ImportedFiles != 2 {
+			t.Errorf("Expected 2 imported files in dry run, got %d", result.ImportedFiles)
+		}
+		if !result.DryRun {
+			t.Error("Expected DryRun flag to be true")
+		}
+
+		// Verify no memories were actually saved
+		memories, err := store.List("")
+		if err != nil {
+			t.Fatalf("Failed to list memories: %v", err)
+		}
+		if len(memories) != 0 {
+			t.Errorf("Expected 0 memories saved in dry run, got %d", len(memories))
+		}
+	})
+
+	t.Run("CategoryMapping", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		opts := &ImportOptions{
+			SkipDuplicates: true,
+			CategoryMapping: map[string]string{
+				"personal": "diary",
+				"work":     "projects",
+			},
+		}
+
+		_, err := importer.ImportVaultWithOptions(opts)
+		if err != nil {
+			t.Fatalf("Failed to import vault with category mapping: %v", err)
+		}
+
+		// Verify category mapping was applied
+		memories, err := store.List("")
+		if err != nil {
+			t.Fatalf("Failed to list memories: %v", err)
+		}
+
+		categoryCount := make(map[string]int)
+		for _, mem := range memories {
+			categoryCount[mem.Category]++
+		}
+
+		expectedCategories := map[string]int{
+			"diary":    1, // personal -> diary
+			"projects": 1, // work -> projects
+		}
+
+		for category, expectedCount := range expectedCategories {
+			if count, exists := categoryCount[category]; !exists || count != expectedCount {
+				t.Errorf("Expected %d memories in category '%s', got %d", expectedCount, category, count)
+			}
+		}
+	})
+
+	t.Run("SkipDuplicates", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		// First import
+		opts1 := &ImportOptions{SkipDuplicates: true}
+		result1, err := importer.ImportVaultWithOptions(opts1)
+		if err != nil {
+			t.Fatalf("Failed to import vault first time: %v", err)
+		}
+
+		if result1.ImportedFiles != 2 {
+			t.Errorf("Expected 2 imported files first time, got %d", result1.ImportedFiles)
+		}
+
+		// Second import with skip duplicates
+		result2, err := importer.ImportVaultWithOptions(opts1)
+		if err != nil {
+			t.Fatalf("Failed to import vault second time: %v", err)
+		}
+
+		if result2.ImportedFiles != 0 {
+			t.Errorf("Expected 0 imported files second time (duplicates), got %d", result2.ImportedFiles)
+		}
+		if result2.DuplicateFiles != 2 {
+			t.Errorf("Expected 2 duplicate files, got %d", result2.DuplicateFiles)
+		}
+
+		// Third import without skip duplicates
+		opts3 := &ImportOptions{SkipDuplicates: false}
+		result3, err := importer.ImportVaultWithOptions(opts3)
+		if err != nil {
+			t.Fatalf("Failed to import vault third time: %v", err)
+		}
+
+		if result3.ImportedFiles != 2 {
+			t.Errorf("Expected 2 imported files third time (allow duplicates), got %d", result3.ImportedFiles)
+		}
+		if result3.DuplicateFiles != 0 {
+			t.Errorf("Expected 0 duplicate files when not skipping, got %d", result3.DuplicateFiles)
+		}
+	})
+}
+
+func TestImportFileWithOptions(t *testing.T) {
+	// Create temporary directory for test
+	tempDir, err := os.MkdirTemp("", "obsidian_file_options_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	// Create test markdown file
+	testContent := `---
+category: test-category
+tags: ["test", "import"]
+---
+
+# Test File
+This file is for testing file import with options.`
+
+	testFile := filepath.Join(tempDir, "test-file.md")
+	err = os.WriteFile(testFile, []byte(testContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	t.Run("DryRun", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		opts := &ImportOptions{
+			DryRun:         true,
+			SkipDuplicates: true,
+		}
+
+		mem, err := importer.ImportFileWithOptions(testFile, opts)
+		if err != nil {
+			t.Fatalf("Failed to import file with dry run: %v", err)
+		}
+
+		if mem.Key != "test-file" {
+			t.Errorf("Expected memory key 'test-file', got '%s'", mem.Key)
+		}
+
+		// Verify no memory was actually saved
+		memories, err := store.List("")
+		if err != nil {
+			t.Fatalf("Failed to list memories: %v", err)
+		}
+		if len(memories) != 0 {
+			t.Errorf("Expected 0 memories saved in dry run, got %d", len(memories))
+		}
+	})
+
+	t.Run("CategoryMapping", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		opts := &ImportOptions{
+			SkipDuplicates: true,
+			CategoryMapping: map[string]string{
+				"test-category": "mapped-category",
+			},
+		}
+
+		mem, err := importer.ImportFileWithOptions(testFile, opts)
+		if err != nil {
+			t.Fatalf("Failed to import file with category mapping: %v", err)
+		}
+
+		if mem.Category != "mapped-category" {
+			t.Errorf("Expected category 'mapped-category', got '%s'", mem.Category)
+		}
+	})
+
+	t.Run("SkipDuplicates", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		// First import
+		opts1 := &ImportOptions{SkipDuplicates: true}
+		_, err := importer.ImportFileWithOptions(testFile, opts1)
+		if err != nil {
+			t.Fatalf("Failed to import file first time: %v", err)
+		}
+
+		// Second import with skip duplicates - should fail
+		_, err = importer.ImportFileWithOptions(testFile, opts1)
+		if err == nil {
+			t.Error("Expected error when importing duplicate file with SkipDuplicates=true")
+		}
+
+		// Third import without skip duplicates - should succeed
+		opts2 := &ImportOptions{SkipDuplicates: false}
+		_, err = importer.ImportFileWithOptions(testFile, opts2)
+		if err != nil {
+			t.Errorf("Expected no error when importing duplicate file with SkipDuplicates=false: %v", err)
+		}
+	})
+}
+
+func TestImportByCategoryWithOptions(t *testing.T) {
+	// Create temporary directory structure for test
+	tempDir, err := os.MkdirTemp("", "obsidian_category_options_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	// Create category directory and files
+	categoryDir := filepath.Join(tempDir, "projects")
+	_ = os.MkdirAll(categoryDir, 0755)
+
+	files := map[string]string{
+		filepath.Join(categoryDir, "project1.md"): `---
+category: projects
+---
+# Project 1
+Description of project 1.`,
+
+		filepath.Join(categoryDir, "project2.md"): `---
+tags: ["project", "work"]
+---
+# Project 2
+Description of project 2.`,
+	}
+
+	for filePath, content := range files {
+		err := os.WriteFile(filePath, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write test file %s: %v", filePath, err)
+		}
+	}
+
+	t.Run("DryRun", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		opts := &ImportOptions{
+			DryRun:         true,
+			SkipDuplicates: true,
+		}
+
+		result, err := importer.ImportByCategoryWithOptions("projects", opts)
+		if err != nil {
+			t.Fatalf("Failed to import category with dry run: %v", err)
+		}
+
+		if result.TotalFiles != 2 {
+			t.Errorf("Expected 2 total files, got %d", result.TotalFiles)
+		}
+		if result.ImportedFiles != 2 {
+			t.Errorf("Expected 2 imported files in dry run, got %d", result.ImportedFiles)
+		}
+		if !result.DryRun {
+			t.Error("Expected DryRun flag to be true")
+		}
+
+		// Verify no memories were actually saved
+		memories, err := store.List("")
+		if err != nil {
+			t.Fatalf("Failed to list memories: %v", err)
+		}
+		if len(memories) != 0 {
+			t.Errorf("Expected 0 memories saved in dry run, got %d", len(memories))
+		}
+	})
+
+	t.Run("CategoryMapping", func(t *testing.T) {
+		store := NewMockStore()
+		importer := NewImporter(tempDir, store)
+
+		opts := &ImportOptions{
+			SkipDuplicates: true,
+			CategoryMapping: map[string]string{
+				"projects": "work-projects",
+			},
+		}
+
+		_, err := importer.ImportByCategoryWithOptions("projects", opts)
+		if err != nil {
+			t.Fatalf("Failed to import category with mapping: %v", err)
+		}
+
+		// Verify all memories have the mapped category
+		memories, err := store.List("")
+		if err != nil {
+			t.Fatalf("Failed to list memories: %v", err)
+		}
+
+		for _, mem := range memories {
+			if mem.Category != "work-projects" {
+				t.Errorf("Expected category 'work-projects', got '%s' for memory %s", mem.Category, mem.Key)
+			}
+		}
+	})
+}

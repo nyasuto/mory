@@ -392,6 +392,21 @@ func (s *Server) registerObsidianTools(mcpServer *server.MCPServer) {
 					"type":        "string",
 					"description": "Specific file path (for 'file' type) or category name (for 'category' type)",
 				},
+				"dry_run": map[string]any{
+					"type":        "boolean",
+					"description": "Preview import without saving (optional, default: false)",
+				},
+				"category_mapping": map[string]any{
+					"type":        "object",
+					"description": "Folder to category mapping (optional)",
+					"additionalProperties": map[string]any{
+						"type": "string",
+					},
+				},
+				"skip_duplicates": map[string]any{
+					"type":        "boolean",
+					"description": "Skip files that already exist as memories (optional, default: true)",
+				},
 			},
 			Required: []string{"import_type"},
 		},
@@ -440,6 +455,28 @@ func (s *Server) handleObsidianImport(ctx context.Context, arguments map[string]
 		return mcp.NewToolResultError("import_type parameter is required"), nil
 	}
 
+	// Parse additional options
+	opts := &obsidian.ImportOptions{
+		SkipDuplicates: true, // Default to true
+	}
+
+	if dryRun, ok := arguments["dry_run"].(bool); ok {
+		opts.DryRun = dryRun
+	}
+
+	if skipDuplicates, ok := arguments["skip_duplicates"].(bool); ok {
+		opts.SkipDuplicates = skipDuplicates
+	}
+
+	if categoryMapping, ok := arguments["category_mapping"].(map[string]interface{}); ok {
+		opts.CategoryMapping = make(map[string]string)
+		for k, v := range categoryMapping {
+			if strVal, ok := v.(string); ok {
+				opts.CategoryMapping[k] = strVal
+			}
+		}
+	}
+
 	// Use the store directly as it implements the MemoryStore interface
 	importer := obsidian.NewImporter(s.config.Obsidian.VaultPath, s.store)
 
@@ -448,27 +485,38 @@ func (s *Server) handleObsidianImport(ctx context.Context, arguments map[string]
 
 	switch importType {
 	case "vault":
-		result, err = importer.ImportVault()
+		result, err = importer.ImportVaultWithOptions(opts)
 	case "category":
 		category, ok := arguments["path"].(string)
 		if !ok || category == "" {
 			return mcp.NewToolResultError("path parameter is required for category import"), nil
 		}
-		result, err = importer.ImportByCategory(category)
+		result, err = importer.ImportByCategoryWithOptions(category, opts)
 	case "file":
 		filePath, ok := arguments["path"].(string)
 		if !ok || filePath == "" {
 			return mcp.NewToolResultError("path parameter is required for file import"), nil
 		}
-		mem, err := importer.ImportFile(filePath)
+		mem, err := importer.ImportFileWithOptions(filePath, opts)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to import file: %v", err)), nil
 		}
 
-		responseText := fmt.Sprintf("✅ Successfully imported file: %s\n", filePath)
+		var responseText string
+		if opts.DryRun {
+			responseText = "🔍 File import preview (dry run):\n"
+		} else {
+			responseText = "✅ Successfully imported file:\n"
+		}
+
+		responseText += fmt.Sprintf("📁 File: %s\n", filePath)
 		responseText += fmt.Sprintf("📝 Memory ID: %s\n", mem.ID)
 		responseText += fmt.Sprintf("📂 Category: %s\n", mem.Category)
 		responseText += fmt.Sprintf("🔑 Key: %s\n", mem.Key)
+
+		if len(mem.Tags) > 0 {
+			responseText += fmt.Sprintf("🏷️ Tags: %v\n", mem.Tags)
+		}
 
 		return mcp.NewToolResultText(responseText), nil
 	default:
@@ -480,11 +528,41 @@ func (s *Server) handleObsidianImport(ctx context.Context, arguments map[string]
 	}
 
 	// Format result
-	responseText := "✅ Import completed successfully!\n\n"
+	var responseText string
+	if result.DryRun {
+		responseText = "🔍 Import preview (dry run):\n\n"
+	} else {
+		responseText = "✅ Import completed successfully!\n\n"
+	}
+
+	// Show import options used
+	if opts.DryRun || len(opts.CategoryMapping) > 0 || !opts.SkipDuplicates {
+		responseText += "⚙️ Import options:\n"
+		if opts.DryRun {
+			responseText += "   - Dry run: Preview mode enabled\n"
+		}
+		if len(opts.CategoryMapping) > 0 {
+			responseText += "   - Category mapping:\n"
+			for from, to := range opts.CategoryMapping {
+				responseText += fmt.Sprintf("     • %s → %s\n", from, to)
+			}
+		}
+		if !opts.SkipDuplicates {
+			responseText += "   - Duplicate handling: Allow overwrites\n"
+		} else {
+			responseText += "   - Duplicate handling: Skip duplicates\n"
+		}
+		responseText += "\n"
+	}
+
 	responseText += "📊 Statistics:\n"
 	responseText += fmt.Sprintf("   - Total files found: %d\n", result.TotalFiles)
 	responseText += fmt.Sprintf("   - Successfully imported: %d\n", result.ImportedFiles)
 	responseText += fmt.Sprintf("   - Skipped files: %d\n", result.SkippedFiles)
+
+	if result.DuplicateFiles > 0 {
+		responseText += fmt.Sprintf("   - Duplicate files skipped: %d\n", result.DuplicateFiles)
+	}
 
 	if len(result.Errors) > 0 {
 		responseText += "\n⚠️ Errors encountered:\n"
@@ -494,13 +572,21 @@ func (s *Server) handleObsidianImport(ctx context.Context, arguments map[string]
 	}
 
 	if len(result.ImportedMemories) > 0 {
-		responseText += "\n📚 Imported memories:\n"
+		if result.DryRun {
+			responseText += "\n📚 Would import:\n"
+		} else {
+			responseText += "\n📚 Imported memories:\n"
+		}
 		for i, mem := range result.ImportedMemories {
 			if i >= 10 { // Limit display to first 10
 				responseText += fmt.Sprintf("   ... and %d more\n", len(result.ImportedMemories)-10)
 				break
 			}
-			responseText += fmt.Sprintf("   - %s (%s)\n", mem.Key, mem.Category)
+			responseText += fmt.Sprintf("   - %s (%s)", mem.Key, mem.Category)
+			if len(mem.Tags) > 0 {
+				responseText += fmt.Sprintf(" [%v]", mem.Tags)
+			}
+			responseText += "\n"
 		}
 	}
 
