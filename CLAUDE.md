@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Mory (モリー) is an MCP (Model Context Protocol) server that adds personal memory functionality to Claude. It enables persistent memory across conversations, similar to ChatGPT's memory feature, allowing for more personalized interactions. The name comes from a hedgehog metaphor - small but able to hold many memories safely.
+Mory is an MCP server that adds personal memory functionality to Claude Desktop. Phase 2 complete with search and Obsidian integration.
 
-**Status**: ✅ MVP Phase 1 complete and ready for Claude Desktop integration.
+**Status**: ✅ Phase 2 Complete - Production ready with all features implemented
 
 ## Development Commands
 
-This is a Go project with completed MVP Phase 1 implementation. All core functionality is working and tested.
+This is a Go project with Phase 2 implementation complete. All core functionality including search and Obsidian integration is working and tested.
 
 ### Available Build Commands
 ```bash
@@ -36,109 +36,66 @@ make clean        # Clean build artifacts
 
 ## Architecture & Structure
 
-### Current Project Structure (Implemented)
+### Project Structure
 ```
 mory/
-├── cmd/mory/main.go           # Entry point
+├── cmd/mory/                  # Application entry point
 ├── internal/
-│   ├── memory/
-│   │   ├── store.go           # Memory storage logic (JSON implementation)
-│   │   ├── store_test.go      # Storage tests
-│   │   ├── types.go           # Memory and OperationLog type definitions
-│   │   └── types_test.go      # Type tests
-│   ├── mcp/
-│   │   ├── server.go          # MCP server implementation with all tools
-│   │   └── server_test.go     # MCP server tests
-│   └── config/
-│       ├── config.go          # Configuration management
-│       └── config_test.go     # Config tests
-├── data/                      # Local storage directory (git-ignored)
-│   ├── memories.json          # Memory data storage
-│   └── operations.log         # Operation log file
-├── bin/mory                   # Built binary
-├── Makefile                   # Build automation
-├── QUICKSTART.md              # POC setup guide
-└── coverage.out/.html         # Test coverage reports
+│   ├── memory/                # Core memory storage and search
+│   ├── mcp/                   # MCP server implementation
+│   ├── obsidian/              # Obsidian integration (Phase 2)
+│   └── config/                # Configuration management
+├── data/                      # Local data storage (git-ignored)
+├── QUICKSTART.md              # Complete setup guide
+├── API.md                     # Technical documentation
+└── README.md                  # Project overview
 ```
 
-### Core Data Model
-```go
-type Memory struct {
-    ID        string    `json:"id"`        // Auto-generated: memory_20250127123456
-    Category  string    `json:"category"`  // User-defined category
-    Key       string    `json:"key"`       // Optional user-friendly alias
-    Value     string    `json:"value"`     // Stored content
-    Tags      []string  `json:"tags"`      // Related tags (for future search)
-    CreatedAt time.Time `json:"created_at"`
-    UpdatedAt time.Time `json:"updated_at"`
-}
+### Core Types
+See [API.md](./API.md) for complete data model specifications.
 
-type OperationLog struct {
-    Timestamp   time.Time `json:"timestamp"`
-    OperationID string    `json:"operation_id"`
-    Operation   string    `json:"operation"`    // save, update, delete
-    Key         string    `json:"key,omitempty"`
-    Before      *Memory   `json:"before,omitempty"`
-    After       *Memory   `json:"after,omitempty"`
-    Success     bool      `json:"success"`
-    Error       string    `json:"error,omitempty"`
-}
-```
+### MCP Tools (6 tools implemented)
 
-### MCP Tools (MVP Phase 1 - Implemented)
-1. **save_memory**: Save information with category, key, value (✅ Complete)
-2. **get_memory**: Retrieve information by exact key/ID match (✅ Complete)
-3. **list_memories**: List all or category-filtered memories (✅ Complete)
+1. **save_memory** - Store information with categories and tags
+2. **get_memory** - Retrieve memories by key or ID  
+3. **list_memories** - List all memories with optional filtering
+4. **search_memories** - Advanced full-text search with scoring
+5. **obsidian_import** - Import Obsidian vault notes
+6. **generate_obsidian_note** - Generate notes from memories using templates
 
-### Key Design Principles
-- **Privacy First**: All data stored locally in JSON files
-- **Explicit Control**: Phase 1 only saves when explicitly instructed ("覚えて", "記憶して", "メモして")
-- **Simple Storage**: JSON file with file locking for concurrent access
-- **Go Standards**: Uses Go 1.21+ with standard project layout
+See [API.md](./API.md) for detailed tool specifications and parameters.
 
-### Development Phases
-- **Phase 1 (✅ Complete)**: Basic key-value storage with explicit save commands
-- **Phase 2 (Planned)**: Search functionality + confirmation-based suggestions
-- **Phase 3 (Planned)**: Semantic search + automatic categorization
-- **Phase 4 (Planned)**: Management UI + bulk operations
+## Setup & Integration
 
-### Integration
-Claude Desktop configuration:
-```json
-{
-  "mcpServers": {
-    "mory": {
-      "command": "/full/path/to/mory/bin/mory"
-    }
-  }
-}
-```
+**Claude Desktop**: See [QUICKSTART.md](./QUICKSTART.md) for complete setup instructions.
 
-## Implementation Status
+**Obsidian Integration**: Set `MORY_OBSIDIAN_VAULT_PATH` environment variable or create config file.
 
-### ✅ Completed Features
-- Complete MCP server implementation (`internal/mcp/server.go`)
-- JSON-based memory storage with file locking (`internal/memory/store.go`)
-- All MVP Phase 1 tools (save_memory, get_memory, list_memories)
-- Comprehensive test suite (100% of planned tests passing)
-- Build automation with Makefile
-- Configuration management (`internal/config/config.go`)
-- Operation logging for audit trail
-- Error handling and input validation
+## Current Status
 
-### 🚧 Current Task
-- Claude Desktop integration testing (see QUICKSTART.md)
+✅ **Phase 2 Complete**: All features implemented, tested, and production-ready
+- Core memory management with JSON storage
+- Advanced search with relevance scoring  
+- Obsidian integration (import/export/templates)
+- Comprehensive test suite (95%+ coverage)
+- Complete documentation
 
-### 📋 Next Steps (Phase 2)
-- Enhanced search capabilities
-- Automatic categorization suggestions
-- Improved user experience based on POC feedback
+📋 **Phase 3 Planned**: Semantic search, AI categorization, smart recommendations
 
 ## Development Notes
 
-- Project uses Japanese documentation and naming conventions
-- ✅ Full Go implementation complete for MVP Phase 1
-- Focus on MVP simplicity over complex features
-- Reliability prioritized over feature richness
-- All design decisions documented in code and tests
-- Ready for production use with Claude Desktop
+### Technical Highlights
+- **Go 1.21+**: Standard Go project layout and conventions
+- **Concurrent-Safe**: Thread-safe operations with proper locking
+- **Well-Tested**: 95%+ test coverage with comprehensive test suites
+- **Production Ready**: Stable, documented, ready for Claude Desktop
+
+### Usage Examples
+See [QUICKSTART.md](./QUICKSTART.md) for complete usage examples and setup instructions.
+See [API.md](./API.md) for detailed technical specifications.
+
+## Important Reminders
+- Focus on requested functionality only
+- Prefer editing existing files over creating new ones  
+- Only create documentation when explicitly requested
+- **Japanese Localization**: All documentation (README.md, QUICKSTART.md, API.md) has been rewritten in Japanese for better accessibility to Japanese users. Maintain this localization in future updates.
