@@ -418,25 +418,33 @@ func (s *Server) registerObsidianTools(mcpServer *server.MCPServer) {
 	// generate_obsidian_note tool
 	generateTool := mcp.Tool{
 		Name:        "generate_obsidian_note",
-		Description: "Generate an Obsidian note from memories in a specific category",
+		Description: "Generate Obsidian note from Mory memories with advanced template support",
 		InputSchema: mcp.ToolInputSchema{
 			Type: "object",
 			Properties: map[string]any{
+				"template": map[string]any{
+					"type":        "string",
+					"description": "Template type (daily, summary, report)",
+					"enum":        []string{"daily", "summary", "report"},
+				},
 				"category": map[string]any{
 					"type":        "string",
-					"description": "Category of memories to include in the note",
+					"description": "Category filter for memories (optional)",
 				},
 				"title": map[string]any{
 					"type":        "string",
-					"description": "Title for the generated note",
+					"description": "Generated note title",
 				},
-				"template": map[string]any{
+				"output_path": map[string]any{
 					"type":        "string",
-					"description": "Note template: 'summary', 'diary', or 'list'",
-					"enum":        []string{"summary", "diary", "list"},
+					"description": "Output file path (optional)",
+				},
+				"include_related": map[string]any{
+					"type":        "boolean",
+					"description": "Include related memories (default: true)",
 				},
 			},
-			Required: []string{"category", "title"},
+			Required: []string{"template", "title"},
 		},
 	}
 	mcpServer.AddTool(generateTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -596,9 +604,10 @@ func (s *Server) handleObsidianImport(ctx context.Context, arguments map[string]
 
 // handleGenerateObsidianNote handles the generate_obsidian_note tool
 func (s *Server) handleGenerateObsidianNote(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
-	category, ok := arguments["category"].(string)
-	if !ok || category == "" {
-		return mcp.NewToolResultError("category parameter is required"), nil
+	// Validate required parameters
+	template, ok := arguments["template"].(string)
+	if !ok || template == "" {
+		return mcp.NewToolResultError("template parameter is required"), nil
 	}
 
 	title, ok := arguments["title"].(string)
@@ -606,96 +615,62 @@ func (s *Server) handleGenerateObsidianNote(ctx context.Context, arguments map[s
 		return mcp.NewToolResultError("title parameter is required"), nil
 	}
 
-	template := "list" // default template
-	if templateArg, ok := arguments["template"].(string); ok {
-		template = templateArg
+	// Optional parameters
+	category := ""
+	if categoryArg, ok := arguments["category"].(string); ok {
+		category = categoryArg
 	}
 
-	// Get memories from the specified category
-	memories, err := s.store.List(category)
+	outputPath := ""
+	if outputPathArg, ok := arguments["output_path"].(string); ok {
+		outputPath = outputPathArg
+	}
+
+	includeRelated := true // default
+	if includeRelatedArg, ok := arguments["include_related"].(bool); ok {
+		includeRelated = includeRelatedArg
+	}
+
+	// Create note generator
+	generator := obsidian.NewNoteGenerator(s.store)
+
+	// Create generation request
+	req := obsidian.GenerateRequest{
+		Template:       template,
+		Category:       category,
+		Title:          title,
+		OutputPath:     outputPath,
+		IncludeRelated: includeRelated,
+		CustomData:     make(map[string]string),
+	}
+
+	// Generate note
+	note, err := generator.GenerateNote(req)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to get memories: %v", err)), nil
+		log.Printf("[GenerateObsidianNote] ERROR: Failed to generate note: %v", err)
+		return mcp.NewToolResultError(fmt.Sprintf("failed to generate note: %v", err)), nil
 	}
 
-	if len(memories) == 0 {
-		return mcp.NewToolResultError(fmt.Sprintf("no memories found in category '%s'", category)), nil
+	log.Printf("[GenerateObsidianNote] Note generated successfully: title=%s, template=%s, memories=%d, related=%d",
+		title, template, note.MemoryCount, note.RelatedCount)
+
+	// Create response
+	responseText := "✅ Obsidianノートが生成されました！\n\n"
+	responseText += fmt.Sprintf("📝 **タイトル**: %s\n", note.Title)
+	responseText += fmt.Sprintf("🎨 **テンプレート**: %s\n", note.TemplateUsed)
+	responseText += fmt.Sprintf("📊 **記憶数**: %d\n", note.MemoryCount)
+	responseText += fmt.Sprintf("🔗 **関連記憶数**: %d\n", note.RelatedCount)
+	responseText += fmt.Sprintf("📅 **生成日時**: %s\n", note.GeneratedAt.Format("2006-01-02 15:04:05"))
+
+	if note.OutputPath != "" {
+		responseText += fmt.Sprintf("📁 **出力パス**: %s\n", note.OutputPath)
 	}
 
-	// Generate note content based on template
-	var noteContent string
-	switch template {
-	case "summary":
-		noteContent = s.generateSummaryNote(title, category, memories)
-	case "diary":
-		noteContent = s.generateDiaryNote(title, category, memories)
-	case "list":
-		noteContent = s.generateListNote(title, category, memories)
-	default:
-		return mcp.NewToolResultError("invalid template: must be 'summary', 'diary', or 'list'"), nil
-	}
+	responseText += "\n---\n\n"
+	responseText += "**生成されたノート内容:**\n\n"
+	responseText += "```markdown\n"
+	responseText += note.Content
+	responseText += "\n```"
 
-	log.Printf("[GenerateObsidianNote] Generated note: title=%s, category=%s, template=%s, memories=%d", title, category, template, len(memories))
-	return mcp.NewToolResultText(noteContent), nil
-}
-
-// generateSummaryNote generates a summary-style note
-func (s *Server) generateSummaryNote(title, category string, memories []*memory.Memory) string {
-	content := fmt.Sprintf("# %s\n\n", title)
-	content += "---\n"
-	content += fmt.Sprintf("category: %s\n", category)
-	content += fmt.Sprintf("generated: %s\n", "{{date}}")
-	content += fmt.Sprintf("tags: [summary, %s]\n", category)
-	content += "---\n\n"
-	content += "## Summary\n\n"
-	content += fmt.Sprintf("This note contains a summary of %d memories from the '%s' category.\n\n", len(memories), category)
-
-	for _, mem := range memories {
-		content += fmt.Sprintf("### %s\n\n", mem.Key)
-		content += fmt.Sprintf("%s\n\n", mem.Value)
-		if len(mem.Tags) > 0 {
-			content += fmt.Sprintf("*Tags: %v*\n\n", mem.Tags)
-		}
-	}
-
-	return content
-}
-
-// generateDiaryNote generates a diary-style note
-func (s *Server) generateDiaryNote(title, category string, memories []*memory.Memory) string {
-	content := fmt.Sprintf("# %s\n\n", title)
-	content += "---\n"
-	content += fmt.Sprintf("category: %s\n", category)
-	content += fmt.Sprintf("generated: %s\n", "{{date}}")
-	content += fmt.Sprintf("tags: [diary, %s]\n", category)
-	content += "---\n\n"
-
-	for _, mem := range memories {
-		content += fmt.Sprintf("## %s\n\n", mem.CreatedAt.Format("2006-01-02"))
-		content += fmt.Sprintf("**%s**\n\n", mem.Key)
-		content += fmt.Sprintf("%s\n\n", mem.Value)
-	}
-
-	return content
-}
-
-// generateListNote generates a list-style note
-func (s *Server) generateListNote(title, category string, memories []*memory.Memory) string {
-	content := fmt.Sprintf("# %s\n\n", title)
-	content += "---\n"
-	content += fmt.Sprintf("category: %s\n", category)
-	content += fmt.Sprintf("generated: %s\n", "{{date}}")
-	content += fmt.Sprintf("tags: [list, %s]\n", category)
-	content += "---\n\n"
-	content += fmt.Sprintf("## Memories in %s\n\n", category)
-
-	for i, mem := range memories {
-		content += fmt.Sprintf("%d. **%s** - %s\n", i+1, mem.Key, mem.Value)
-		if len(mem.Tags) > 0 {
-			content += fmt.Sprintf("   - Tags: %v\n", mem.Tags)
-		}
-		content += fmt.Sprintf("   - Created: %s\n", mem.CreatedAt.Format("2006-01-02 15:04:05"))
-		content += "\n"
-	}
-
-	return content
+	return mcp.NewToolResultText(responseText), nil
 }
