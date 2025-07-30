@@ -143,8 +143,8 @@ func TestGenerateNote_BasicDaily(t *testing.T) {
 	mem1 := createTestMemory("work", "project-update", "Updated the API documentation", []string{"documentation", "api"})
 	mem2 := createTestMemory("work", "meeting-notes", "Discussed quarterly goals", []string{"meeting", "goals"})
 
-	store.Save(mem1)
-	store.Save(mem2)
+	_, _ = store.Save(mem1)
+	_, _ = store.Save(mem2)
 
 	req := GenerateRequest{
 		Template:       "daily",
@@ -197,8 +197,8 @@ func TestGenerateNote_SummaryTemplate(t *testing.T) {
 	mem1 := createTestMemory("learning", "golang-basics", "Learned about goroutines", []string{"golang", "concurrency"})
 	mem2 := createTestMemory("learning", "design-patterns", "Studied observer pattern", []string{"patterns", "design"})
 
-	store.Save(mem1)
-	store.Save(mem2)
+	_, _ = store.Save(mem1)
+	_, _ = store.Save(mem2)
 
 	req := GenerateRequest{
 		Template:       "summary",
@@ -230,8 +230,8 @@ func TestGenerateNote_ReportTemplate(t *testing.T) {
 	mem1 := createTestMemory("project", "milestone-1", "Completed user authentication", []string{"milestone", "auth"})
 	mem2 := createTestMemory("project", "milestone-2", "Implemented data persistence", []string{"milestone", "database"})
 
-	store.Save(mem1)
-	store.Save(mem2)
+	_, _ = store.Save(mem1)
+	_, _ = store.Save(mem2)
 
 	req := GenerateRequest{
 		Template:       "report",
@@ -268,9 +268,9 @@ func TestGenerateNote_WithRelatedMemories(t *testing.T) {
 	mem2 := createTestMemory("tech", "rust-study", "Learning Rust programming", []string{"rust", "programming"})
 	mem3 := createTestMemory("books", "programming-book", "Read Clean Code", []string{"programming", "books"})
 
-	store.Save(mem1)
-	store.Save(mem2)
-	store.Save(mem3)
+	_, _ = store.Save(mem1)
+	_, _ = store.Save(mem2)
+	_, _ = store.Save(mem3)
 
 	req := GenerateRequest{
 		Template:       "daily",
@@ -301,7 +301,7 @@ func TestGenerateNote_EmptyCategory(t *testing.T) {
 
 	// Add some memories but not in the requested category
 	mem1 := createTestMemory("work", "task1", "Complete project", []string{"work"})
-	store.Save(mem1)
+	_, _ = store.Save(mem1)
 
 	req := GenerateRequest{
 		Template:       "daily",
@@ -333,8 +333,8 @@ func TestGenerateNote_AllCategories(t *testing.T) {
 	mem1 := createTestMemory("work", "task1", "Work task", []string{"work"})
 	mem2 := createTestMemory("personal", "task2", "Personal task", []string{"personal"})
 
-	store.Save(mem1)
-	store.Save(mem2)
+	_, _ = store.Save(mem1)
+	_, _ = store.Save(mem2)
 
 	req := GenerateRequest{
 		Template:       "summary",
@@ -416,7 +416,7 @@ func TestGenerateNote_OutputPath(t *testing.T) {
 	generator := NewNoteGenerator(store)
 
 	mem1 := createTestMemory("test", "key1", "value1", []string{"tag1"})
-	store.Save(mem1)
+	_, _ = store.Save(mem1)
 
 	expectedPath := "notes/test-note.md"
 	req := GenerateRequest{
@@ -440,7 +440,7 @@ func TestGenerateNote_DefaultOutputPath(t *testing.T) {
 	generator := NewNoteGenerator(store)
 
 	mem1 := createTestMemory("test", "key1", "value1", []string{"tag1"})
-	store.Save(mem1)
+	_, _ = store.Save(mem1)
 
 	req := GenerateRequest{
 		Template: "daily",
@@ -469,10 +469,10 @@ func TestFindRelatedMemories(t *testing.T) {
 	mem3 := createTestMemory("books", "go-book", "Read Go programming book", []string{"programming", "books"})
 	mem4 := createTestMemory("unrelated", "cooking", "Made pasta", []string{"food", "cooking"})
 
-	store.Save(mem1)
-	store.Save(mem2)
-	store.Save(mem3)
-	store.Save(mem4)
+	_, _ = store.Save(mem1)
+	_, _ = store.Save(mem2)
+	_, _ = store.Save(mem3)
+	_, _ = store.Save(mem4)
 
 	// Test finding related memories
 	inputMemories := []*memory.Memory{mem1}

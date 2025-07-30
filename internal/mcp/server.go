@@ -655,7 +655,7 @@ func (s *Server) handleGenerateObsidianNote(ctx context.Context, arguments map[s
 		title, template, note.MemoryCount, note.RelatedCount)
 
 	// Create response
-	responseText := fmt.Sprintf("✅ Obsidianノートが生成されました！\n\n")
+	responseText := "✅ Obsidianノートが生成されました！\n\n"
 	responseText += fmt.Sprintf("📝 **タイトル**: %s\n", note.Title)
 	responseText += fmt.Sprintf("🎨 **テンプレート**: %s\n", note.TemplateUsed)
 	responseText += fmt.Sprintf("📊 **記憶数**: %d\n", note.MemoryCount)
