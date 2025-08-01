@@ -3,6 +3,8 @@
 /mory
 *.exe
 
+/.serena
+
 # Go build artifacts
 *.o
 *.a
