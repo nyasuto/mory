@@ -48,44 +48,64 @@ func NewSemanticSearchEngine(
 
 // Search performs hybrid search combining keyword and semantic search
 func (se *SemanticSearchEngine) Search(query memory.SearchQuery) ([]*memory.SearchResult, error) {
+	log.Printf("[SemanticSearchEngine.Search] Starting hybrid search with query: '%s', category: '%s'", query.Query, query.Category)
+	log.Printf("[SemanticSearchEngine.Search] Engine settings - enabled: %t, hybridWeight: %.2f, threshold: %.2f", se.enabled, se.hybridWeight, se.threshold)
+
 	// Always perform keyword search as fallback
+	log.Printf("[SemanticSearchEngine.Search] Performing keyword search...")
 	keywordResults, err := se.keywordEngine.Search(query)
 	if err != nil {
+		log.Printf("[SemanticSearchEngine.Search] Keyword search failed: %v", err)
 		return nil, fmt.Errorf("keyword search failed: %w", err)
 	}
+	log.Printf("[SemanticSearchEngine.Search] Keyword search returned %d results", len(keywordResults))
 
 	// If semantic search is disabled or query is empty, return keyword results
 	if !se.enabled || strings.TrimSpace(query.Query) == "" {
+		log.Printf("[SemanticSearchEngine.Search] Semantic search disabled or empty query, returning keyword results only")
 		return keywordResults, nil
 	}
 
 	// Perform semantic search
+	log.Printf("[SemanticSearchEngine.Search] Performing semantic search...")
 	semanticResults, err := se.performSemanticSearch(query.Query)
 	if err != nil {
-		log.Printf("[SemanticSearch] Semantic search failed, falling back to keyword: %v", err)
+		log.Printf("[SemanticSearchEngine.Search] Semantic search failed, falling back to keyword: %v", err)
 		return keywordResults, nil
 	}
+	log.Printf("[SemanticSearchEngine.Search] Semantic search returned %d results", len(semanticResults))
 
 	// Combine and rank results
+	log.Printf("[SemanticSearchEngine.Search] Combining keyword and semantic results...")
 	hybridResults := se.combineResults(keywordResults, semanticResults)
+	log.Printf("[SemanticSearchEngine.Search] Created %d hybrid results", len(hybridResults))
 
 	// Convert back to memory.SearchResult format
-	return se.convertToMemoryResults(hybridResults), nil
+	finalResults := se.convertToMemoryResults(hybridResults)
+	log.Printf("[SemanticSearchEngine.Search] Returning %d final results", len(finalResults))
+	return finalResults, nil
 }
 
 // performSemanticSearch performs semantic similarity search
 func (se *SemanticSearchEngine) performSemanticSearch(query string) ([]VectorResult, error) {
+	log.Printf("[SemanticSearchEngine.performSemanticSearch] Generating embedding for query: '%s'", query)
+
 	// Generate embedding for query
 	queryEmbedding, err := se.embeddingService.GetEmbedding(query)
 	if err != nil {
+		log.Printf("[SemanticSearchEngine.performSemanticSearch] Failed to generate query embedding: %v", err)
 		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 	}
+	log.Printf("[SemanticSearchEngine.performSemanticSearch] Generated embedding with %d dimensions", len(queryEmbedding))
 
 	// Search vector store
+	log.Printf("[SemanticSearchEngine.performSemanticSearch] Searching vector store...")
 	results, err := se.vectorStore.Search(queryEmbedding, 50) // Get top 50 semantic matches
 	if err != nil {
+		log.Printf("[SemanticSearchEngine.performSemanticSearch] Vector search failed: %v", err)
 		return nil, fmt.Errorf("vector search failed: %w", err)
 	}
+	log.Printf("[SemanticSearchEngine.performSemanticSearch] Vector search returned %d results", len(results))
 
 	// Filter by threshold
 	var filteredResults []VectorResult
@@ -94,6 +114,7 @@ func (se *SemanticSearchEngine) performSemanticSearch(query string) ([]VectorRes
 			filteredResults = append(filteredResults, result)
 		}
 	}
+	log.Printf("[SemanticSearchEngine.performSemanticSearch] Filtered to %d results above threshold %.3f", len(filteredResults), se.threshold)
 
 	return filteredResults, nil
 }

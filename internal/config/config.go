@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -96,15 +97,42 @@ func LoadConfig(configPath string) (*Config, error) {
 
 // loadDotEnv loads environment variables from .env file
 func loadDotEnv() {
-	envFile := ".env"
-	if _, err := os.Stat(envFile); os.IsNotExist(err) {
+	// Try multiple possible locations for .env file
+	possibleEnvPaths := []string{
+		".env",                      // Current directory
+		"/Users/yast/git/mory/.env", // Project root (absolute)
+		"/Users/yast/Library/Application Support/Mory/.env", // Claude Desktop data directory
+	}
+
+	// Debug: Print current working directory
+	if pwd, err := os.Getwd(); err == nil {
+		log.Printf("[LoadDotEnv] Current working directory: %s", pwd)
+	}
+
+	var envFile string
+	var found bool
+
+	for _, path := range possibleEnvPaths {
+		log.Printf("[LoadDotEnv] Checking for .env file at: %s", path)
+		if _, err := os.Stat(path); err == nil {
+			envFile = path
+			found = true
+			log.Printf("[LoadDotEnv] Found .env file at: %s", path)
+			break
+		}
+	}
+
+	if !found {
+		log.Printf("[LoadDotEnv] No .env file found in any of the expected locations")
 		return
 	}
 
 	data, err := os.ReadFile(envFile)
 	if err != nil {
+		log.Printf("[LoadDotEnv] Error reading .env file: %v", err)
 		return
 	}
+	log.Printf("[LoadDotEnv] Successfully read .env file, processing variables...")
 
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -179,6 +207,24 @@ func applyEnvironmentVariables(config *Config) {
 	// Auto-enable semantic search if API key is provided
 	if config.Semantic.OpenAIAPIKey != "" && !config.Semantic.Enabled {
 		config.Semantic.Enabled = true
+	}
+
+	// Storage config
+	if config.Storage == nil {
+		config.Storage = &StorageConfig{}
+	}
+
+	if val := os.Getenv("MORY_STORAGE_TYPE"); val != "" {
+		config.Storage.Type = val
+	}
+	if val := os.Getenv("MORY_SQLITE_PATH"); val != "" {
+		config.Storage.SQLitePath = val
+	}
+	if val := os.Getenv("MORY_JSON_PATH"); val != "" {
+		config.Storage.JSONPath = val
+	}
+	if val := os.Getenv("MORY_LOG_PATH"); val != "" {
+		config.Storage.LogPath = val
 	}
 
 	// Obsidian config

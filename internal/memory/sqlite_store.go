@@ -457,13 +457,29 @@ func (s *SQLiteMemoryStore) List(category string) ([]*Memory, error) {
 
 // Search performs search across memories using semantic search if available
 func (s *SQLiteMemoryStore) Search(query SearchQuery) ([]*SearchResult, error) {
+	log.Printf("[SQLiteMemoryStore.Search] Starting search with query: '%s', category: '%s'", query.Query, query.Category)
+
 	// Use semantic search if available and enabled
 	if s.semanticEngine != nil {
-		return s.semanticEngine.Search(query)
+		log.Printf("[SQLiteMemoryStore.Search] Semantic engine is available, delegating to semantic search")
+		results, err := s.semanticEngine.Search(query)
+		if err != nil {
+			log.Printf("[SQLiteMemoryStore.Search] Semantic search failed: %v", err)
+		} else {
+			log.Printf("[SQLiteMemoryStore.Search] Semantic search returned %d results", len(results))
+		}
+		return results, err
 	}
 
+	log.Printf("[SQLiteMemoryStore.Search] No semantic engine available, falling back to FTS search")
 	// Fall back to FTS5 search or keyword search
-	return s.performFTSSearch(query)
+	results, err := s.performFTSSearch(query)
+	if err != nil {
+		log.Printf("[SQLiteMemoryStore.Search] FTS search failed: %v", err)
+	} else {
+		log.Printf("[SQLiteMemoryStore.Search] FTS search returned %d results", len(results))
+	}
+	return results, err
 }
 
 // performFTSSearch performs full-text search using SQLite FTS5
@@ -829,6 +845,11 @@ func (s *SQLiteMemoryStore) scanMemory(scanner interface{}) (*Memory, error) {
 
 // SetSemanticEngine sets the semantic search engine for this store
 func (s *SQLiteMemoryStore) SetSemanticEngine(engine SemanticSearchEngine) {
+	if engine != nil {
+		log.Printf("[SQLiteMemoryStore] Setting semantic search engine")
+	} else {
+		log.Printf("[SQLiteMemoryStore] Clearing semantic search engine")
+	}
 	s.semanticEngine = engine
 }
 
