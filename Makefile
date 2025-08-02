@@ -95,17 +95,32 @@ install:
 	@echo "Installing $(BINARY_NAME)..."
 	$(GOCMD) install $(CMD_PATH)
 
+# Migration tools for semantic search
+.PHONY: migrate-dry-run
+migrate-dry-run:
+	@echo "Running migration dry-run (preview only)..."
+	$(GOCMD) run migrate_embeddings.go --dry-run
+
+.PHONY: migrate-embeddings
+migrate-embeddings:
+	@echo "Migrating existing memories to add embeddings..."
+	@echo "⚠️  This will call OpenAI API and may incur costs"
+	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
+	$(GOCMD) run migrate_embeddings.go
+
 # Development setup
 .PHONY: dev-setup
 dev-setup: deps tidy
 	@echo "Development setup completed"
 	@echo "Available commands:"
-	@echo "  make build     - Build the binary"
-	@echo "  make run       - Run in development mode"
-	@echo "  make test      - Run tests"
-	@echo "  make fmt       - Format code"
-	@echo "  make lint      - Run linter"
-	@echo "  make clean     - Clean build artifacts"
+	@echo "  make build             - Build the binary"
+	@echo "  make run               - Run in development mode"
+	@echo "  make test              - Run tests"
+	@echo "  make fmt               - Format code"
+	@echo "  make lint              - Run linter"
+	@echo "  make clean             - Clean build artifacts"
+	@echo "  make migrate-dry-run   - Preview embedding migration"
+	@echo "  make migrate-embeddings - Migrate existing memories (costs apply)"
 
 # Quality checks
 .PHONY: quality
