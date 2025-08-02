@@ -84,6 +84,26 @@ func (m *MockStore) LogOperation(log *memory.OperationLog) error {
 	return nil
 }
 
+// Semantic search methods for MemoryStore interface
+func (m *MockStore) SetSemanticEngine(engine memory.SemanticSearchEngine) {
+	// Mock implementation - do nothing
+}
+
+func (m *MockStore) GenerateEmbeddings() error {
+	// Mock implementation - do nothing
+	return nil
+}
+
+func (m *MockStore) GetSemanticStats() map[string]interface{} {
+	// Mock implementation - return basic stats
+	return map[string]interface{}{
+		"semantic_engine_available": false,
+		"total_memories":            len(m.memories),
+		"memories_with_embeddings":  0,
+		"embedding_coverage":        0.0,
+	}
+}
+
 func TestNewImporter(t *testing.T) {
 	vaultPath := "/test/vault"
 	store := NewMockStore()

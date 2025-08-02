@@ -13,6 +13,7 @@ import (
 	"github.com/nyasuto/mory/internal/config"
 	"github.com/nyasuto/mory/internal/mcp"
 	"github.com/nyasuto/mory/internal/memory"
+	"github.com/nyasuto/mory/internal/semantic"
 )
 
 // Build-time variables (set by ldflags)
@@ -74,6 +75,40 @@ func Run(opts RunOptions) error {
 
 	store := memory.NewJSONMemoryStore(memoriesFile, logFile)
 	log.Printf("[Main] Memory store initialized successfully")
+
+	// Initialize semantic search if OpenAI API key is provided
+	if cfg.Semantic != nil && cfg.Semantic.OpenAIAPIKey != "" && cfg.Semantic.Enabled {
+		log.Printf("[Main] Initializing semantic search engine...")
+
+		// Create embedding service
+		embeddingService := semantic.NewOpenAIEmbeddingService(
+			cfg.Semantic.OpenAIAPIKey,
+			cfg.Semantic.EmbeddingModel,
+		)
+
+		// Create vector store
+		vectorStore := semantic.NewLocalVectorStore()
+
+		// Create keyword search engine (fallback)
+		keywordEngine := memory.NewSearchEngine(store)
+
+		// Create semantic search engine
+		semanticEngine := semantic.NewSemanticSearchEngine(
+			keywordEngine,
+			embeddingService,
+			vectorStore,
+			cfg.Semantic.HybridWeight,
+			cfg.Semantic.SimilarityThreshold,
+			cfg.Semantic.Enabled,
+		)
+
+		// Set semantic engine in the store
+		store.SetSemanticEngine(semanticEngine)
+
+		log.Printf("[Main] Semantic search engine initialized with hybrid weight %.2f", cfg.Semantic.HybridWeight)
+	} else {
+		log.Printf("[Main] Semantic search disabled - no OpenAI API key provided or feature disabled")
+	}
 
 	// Create MCP server
 	server := mcp.NewServer(cfg, store)

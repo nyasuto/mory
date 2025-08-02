@@ -14,12 +14,24 @@ type ObsidianConfig struct {
 	TemplateDir  string `json:"template_dir"`
 }
 
+// SemanticConfig represents semantic search configuration
+type SemanticConfig struct {
+	OpenAIAPIKey        string  `json:"openai_api_key"`
+	EmbeddingModel      string  `json:"embedding_model"`      // "text-embedding-3-small"
+	MaxBatchSize        int     `json:"max_batch_size"`       // 100
+	CacheEnabled        bool    `json:"cache_enabled"`        // true
+	HybridWeight        float64 `json:"hybrid_weight"`        // 0.7 (semantic weight)
+	SimilarityThreshold float64 `json:"similarity_threshold"` // 0.3
+	Enabled             bool    `json:"enabled"`              // false by default
+}
+
 // Config represents the application configuration
 type Config struct {
 	DataPath   string          `json:"data_path"`
 	ServerPort int             `json:"server_port"`
 	LogLevel   string          `json:"log_level"`
 	Obsidian   *ObsidianConfig `json:"obsidian,omitempty"`
+	Semantic   *SemanticConfig `json:"semantic,omitempty"`
 }
 
 // DefaultConfig returns a default configuration
@@ -28,6 +40,14 @@ func DefaultConfig() *Config {
 		DataPath:   "data/memories.json",
 		ServerPort: 8080,
 		LogLevel:   "info",
+		Semantic: &SemanticConfig{
+			EmbeddingModel:      "text-embedding-3-small",
+			MaxBatchSize:        100,
+			CacheEnabled:        true,
+			HybridWeight:        0.7,
+			SimilarityThreshold: 0.3,
+			Enabled:             false, // Disabled by default until API key is set
+		},
 	}
 }
 

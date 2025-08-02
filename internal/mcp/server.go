@@ -132,6 +132,21 @@ func (s *Server) registerTools(mcpServer *server.MCPServer) {
 		return s.handleSearchMemories(ctx, request.GetArguments())
 	})
 
+	// generate_embeddings tool (only if semantic search is enabled)
+	if s.config.Semantic != nil && s.config.Semantic.Enabled && s.config.Semantic.OpenAIAPIKey != "" {
+		generateEmbeddingsTool := mcp.Tool{
+			Name:        "generate_embeddings",
+			Description: "Generate embeddings for all memories that don't have them (requires OpenAI API)",
+			InputSchema: mcp.ToolInputSchema{
+				Type:       "object",
+				Properties: map[string]any{},
+			},
+		}
+		mcpServer.AddTool(generateEmbeddingsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return s.handleGenerateEmbeddings(ctx, request.GetArguments())
+		})
+	}
+
 	// Obsidianツールの登録（Obsidian設定が有効な場合のみ）
 	if s.config.Obsidian != nil && s.config.Obsidian.VaultPath != "" {
 		s.registerObsidianTools(mcpServer)
@@ -331,6 +346,13 @@ func (s *Server) handleSearchMemories(ctx context.Context, arguments map[string]
 		return mcp.NewToolResultErrorFromErr("failed to search memories", err), nil
 	}
 
+	// Get semantic search stats for informational purposes
+	semanticStats := s.store.GetSemanticStats()
+	isSemanticEnabled := false
+	if enabled, ok := semanticStats["semantic_engine_available"].(bool); ok && enabled {
+		isSemanticEnabled = true
+	}
+
 	// Format response
 	var responseText string
 	if len(results) == 0 {
@@ -340,10 +362,18 @@ func (s *Server) handleSearchMemories(ctx context.Context, arguments map[string]
 			responseText = fmt.Sprintf("🔍 No memories found for query '%s'", query)
 		}
 	} else {
+		// Add search type indicator to header
+		searchType := "keyword"
+		if isSemanticEnabled {
+			searchType = "hybrid (semantic + keyword)"
+		}
+
 		if category != "" {
-			responseText = fmt.Sprintf("🔍 Search results for '%s' in category '%s' (found: %d):\n\n", query, category, len(results))
+			responseText = fmt.Sprintf("🔍 Search results for '%s' in category '%s' (found: %d, type: %s):\n\n",
+				query, category, len(results), searchType)
 		} else {
-			responseText = fmt.Sprintf("🔍 Search results for '%s' (found: %d):\n\n", query, len(results))
+			responseText = fmt.Sprintf("🔍 Search results for '%s' (found: %d, type: %s):\n\n",
+				query, len(results), searchType)
 		}
 
 		for i, result := range results {
@@ -355,8 +385,14 @@ func (s *Server) handleSearchMemories(ctx context.Context, arguments map[string]
 				displayName = mem.ID
 			}
 
-			responseText += fmt.Sprintf("%d. %s: %s (score: %.2f)\n",
-				i+1, displayName, mem.Value, result.Score)
+			// Enhanced score display for semantic search
+			scoreDisplay := fmt.Sprintf("%.2f", result.Score)
+			if isSemanticEnabled {
+				scoreDisplay += " 🧠" // Brain emoji to indicate semantic scoring
+			}
+
+			responseText += fmt.Sprintf("%d. %s: %s (score: %s)\n",
+				i+1, displayName, mem.Value, scoreDisplay)
 
 			responseText += fmt.Sprintf("   📝 Category: %s\n", mem.Category)
 			responseText += fmt.Sprintf("   🆔 ID: %s\n", mem.ID)
@@ -366,11 +402,98 @@ func (s *Server) handleSearchMemories(ctx context.Context, arguments map[string]
 				responseText += fmt.Sprintf("   🏷️ Tags: %v\n", mem.Tags)
 			}
 
+			// Show embedding status if semantic search is available
+			if isSemanticEnabled {
+				hasEmbedding := len(mem.Embedding) > 0
+				embeddingStatus := "❌"
+				if hasEmbedding {
+					embeddingStatus = "✅"
+				}
+				responseText += fmt.Sprintf("   🧠 Embedding: %s\n", embeddingStatus)
+			}
+
 			responseText += "\n"
+		}
+
+		// Add semantic search statistics at the end
+		if isSemanticEnabled && len(semanticStats) > 0 {
+			responseText += "📊 Semantic Search Info:\n"
+			if totalMems, ok := semanticStats["total_memories"].(int); ok {
+				responseText += fmt.Sprintf("   • Total memories: %d\n", totalMems)
+			}
+			if embeddedMems, ok := semanticStats["memories_with_embeddings"].(int); ok {
+				responseText += fmt.Sprintf("   • With embeddings: %d\n", embeddedMems)
+			}
+			if coverage, ok := semanticStats["embedding_coverage"].(float64); ok {
+				responseText += fmt.Sprintf("   • Coverage: %.1f%%\n", coverage*100)
+			}
+			if hybridWeight, ok := semanticStats["hybrid_weight"].(float64); ok {
+				responseText += fmt.Sprintf("   • Semantic weight: %.1f%%\n", hybridWeight*100)
+			}
 		}
 	}
 
 	log.Printf("[SearchMemoriesTool] Search completed: query='%s', category='%s', results=%d", query, category, len(results))
+	return mcp.NewToolResultText(responseText), nil
+}
+
+// handleGenerateEmbeddings handles the generate_embeddings tool
+func (s *Server) handleGenerateEmbeddings(ctx context.Context, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
+	// Check if store is initialized
+	if s.store == nil {
+		return mcp.NewToolResultError("memory store not initialized"), nil
+	}
+
+	// Check if semantic search is available
+	semanticStats := s.store.GetSemanticStats()
+	isSemanticEnabled := false
+	if enabled, ok := semanticStats["semantic_engine_available"].(bool); ok && enabled {
+		isSemanticEnabled = true
+	}
+
+	if !isSemanticEnabled {
+		return mcp.NewToolResultError("🚫 Semantic search is not enabled. Please configure OpenAI API key and enable semantic search."), nil
+	}
+
+	log.Printf("[GenerateEmbeddings] Starting embedding generation process...")
+
+	// Get current stats before generation
+	beforeStats := s.store.GetSemanticStats()
+	beforeEmbedded, _ := beforeStats["memories_with_embeddings"].(int)
+
+	// Generate embeddings
+	err := s.store.GenerateEmbeddings()
+	if err != nil {
+		log.Printf("[GenerateEmbeddings] ERROR: Failed to generate embeddings: %v", err)
+		return mcp.NewToolResultError(fmt.Sprintf("❌ Failed to generate embeddings: %v", err)), nil
+	}
+
+	// Get stats after generation
+	afterStats := s.store.GetSemanticStats()
+	afterTotal, _ := afterStats["total_memories"].(int)
+	afterEmbedded, _ := afterStats["memories_with_embeddings"].(int)
+	coverage, _ := afterStats["embedding_coverage"].(float64)
+
+	// Calculate newly generated embeddings
+	newlyGenerated := afterEmbedded - beforeEmbedded
+
+	// Create response
+	responseText := "✅ Embedding generation completed!\n\n"
+	responseText += "📊 Results:\n"
+	responseText += fmt.Sprintf("   • Total memories: %d\n", afterTotal)
+	responseText += fmt.Sprintf("   • Memories with embeddings: %d\n", afterEmbedded)
+	responseText += fmt.Sprintf("   • Newly generated: %d\n", newlyGenerated)
+	responseText += fmt.Sprintf("   • Coverage: %.1f%%\n", coverage*100)
+
+	if newlyGenerated > 0 {
+		responseText += "\n🧠 Semantic search is now more effective with the updated embeddings!"
+	} else {
+		responseText += "\n📝 All memories already had embeddings - no new embeddings were needed."
+	}
+
+	log.Printf("[GenerateEmbeddings] Completed: total=%d, embedded=%d, new=%d",
+		afterTotal, afterEmbedded, newlyGenerated)
+
 	return mcp.NewToolResultText(responseText), nil
 }
 
