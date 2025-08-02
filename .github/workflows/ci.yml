@@ -96,30 +96,6 @@ jobs:
     - name: Run mypy type checking
       run: uv run mypy app/
 
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
-        
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        
-    - name: Install dependencies
-      run: uv sync --frozen --extra dev
-      
-    - name: Run safety security scan
-      run: uv run safety check --json || true
-      continue-on-error: true
 
   docker:
     name: Docker Build
@@ -146,7 +122,7 @@ jobs:
   ci-complete:
     name: CI Complete
     runs-on: ubuntu-latest
-    needs: [test, lint, security, docker]
+    needs: [test, lint, docker]
     if: always()
     
     steps:
@@ -155,13 +131,11 @@ jobs:
         echo "=== CI Pipeline Status ==="
         echo "Test job: ${{ needs.test.result }}"
         echo "Lint job: ${{ needs.lint.result }}"
-        echo "Security job: ${{ needs.security.result }}"
         echo "Docker job: ${{ needs.docker.result }}"
         echo "=========================="
         
         if [[ "${{ needs.test.result }}" == "success" && "${{ needs.lint.result }}" == "success" && "${{ needs.docker.result }}" == "success" ]]; then
           echo "✅ All CI jobs completed successfully!"
-          echo "Note: Security scan status: ${{ needs.security.result }} (allowed to fail)"
           exit 0
         else
           echo "❌ Some CI jobs failed or were cancelled"

@@ -41,16 +41,51 @@ def setup_test_database():
     # Initialize FTS5 tables for testing
     try:
         with engine.connect() as connection:
-            try:
-                # Try to create FTS5 table
-                connection.execute(text("""
-                    CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts 
-                    USING fts5(category, key, value, tags, content='memories', content_rowid='id')
-                """))
-                connection.commit()
-            except Exception:
-                # FTS5 not available, skip
-                pass
+            # Create FTS5 virtual table
+            connection.execute(text("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+                    id UNINDEXED,
+                    category,
+                    key,
+                    value,
+                    tags,
+                    content='memories',
+                    tokenize='unicode61 remove_diacritics 2'
+                )
+            """))
+            
+            # Create triggers for automatic synchronization
+            connection.execute(text("""
+                CREATE TRIGGER IF NOT EXISTS memories_fts_insert
+                AFTER INSERT ON memories
+                BEGIN
+                    INSERT INTO memories_fts(id, category, key, value, tags)
+                    VALUES (new.id, new.category, new.key, new.value, new.tags);
+                END
+            """))
+            
+            connection.execute(text("""
+                CREATE TRIGGER IF NOT EXISTS memories_fts_update
+                AFTER UPDATE ON memories
+                BEGIN
+                    UPDATE memories_fts
+                    SET category = new.category,
+                        key = new.key,
+                        value = new.value,
+                        tags = new.tags
+                    WHERE id = new.id;
+                END
+            """))
+            
+            connection.execute(text("""
+                CREATE TRIGGER IF NOT EXISTS memories_fts_delete
+                AFTER DELETE ON memories
+                BEGIN
+                    DELETE FROM memories_fts WHERE id = old.id;
+                END
+            """))
+            
+            connection.commit()
     except Exception:
         pass  # FTS5 might not be available in test environment
 
