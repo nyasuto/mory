@@ -144,3 +144,26 @@ jobs:
         path: bin/
         retention-days: 7
 
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs: [test, lint, build]
+    if: always()
+    
+    steps:
+    - name: Check all jobs status
+      run: |
+        echo "=== CI Pipeline Status ==="
+        echo "Test job: ${{ needs.test.result }}"
+        echo "Lint job: ${{ needs.lint.result }}"
+        echo "Build job: ${{ needs.build.result }}"
+        echo "=========================="
+        
+        if [[ "${{ needs.test.result }}" == "success" && "${{ needs.lint.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
+          echo "✅ All CI jobs completed successfully!"
+          exit 0
+        else
+          echo "❌ Some CI jobs failed or were cancelled"
+          exit 1
+        fi
+
