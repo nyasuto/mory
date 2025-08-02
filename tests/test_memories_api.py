@@ -1,48 +1,6 @@
 """Tests for memory CRUD API endpoints"""
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.core.database import Base, get_db
-from app.main import app
-
-# Test database setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    poolclass=StaticPool,
-    connect_args={"check_same_thread": False},
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for testing"""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-
-
-# Create test client
-client = TestClient(app)
-
-
-@pytest.fixture(scope="function")
-def db_session():
-    """Create a fresh database for each test"""
-    # Simply create tables using SQLAlchemy
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
@@ -59,8 +17,7 @@ def sample_memory_data():
 class TestCreateMemory:
     """Tests for POST /api/memories"""
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_create_memory_success(self, db_session, sample_memory_data):
+    def test_create_memory_success(self, client, db_session, sample_memory_data):
         """Test successful memory creation"""
         response = client.post("/api/memories", json=sample_memory_data)
 
@@ -76,8 +33,7 @@ class TestCreateMemory:
         assert "updated_at" in data
         assert data["has_embedding"] is False
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_create_memory_without_key(self, db_session):
+    def test_create_memory_without_key(self, client, db_session):
         """Test creating memory without key"""
         memory_data = {"category": "test_category", "value": "Memory without key", "tags": ["test"]}
 
@@ -88,8 +44,7 @@ class TestCreateMemory:
         assert data["key"] is None
         assert data["value"] == memory_data["value"]
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_create_memory_duplicate_key_updates(self, db_session, sample_memory_data):
+    def test_create_memory_duplicate_key_updates(self, client, db_session, sample_memory_data):
         """Test that duplicate key updates existing memory"""
         # Create first memory
         response1 = client.post("/api/memories", json=sample_memory_data)
@@ -110,8 +65,7 @@ class TestCreateMemory:
         assert data["value"] == "Updated memory value"
         assert data["tags"] == ["updated", "test"]
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_create_memory_validation_errors(self, db_session):
+    def test_create_memory_validation_errors(self, client, db_session):
         """Test validation errors"""
         # Empty category
         response = client.post("/api/memories", json={"category": "", "value": "test", "tags": []})
@@ -129,8 +83,7 @@ class TestCreateMemory:
 class TestGetMemory:
     """Tests for GET /api/memories/{key}"""
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_get_memory_success(self, db_session, sample_memory_data):
+    def test_get_memory_success(self, client, db_session, sample_memory_data):
         """Test successful memory retrieval"""
         # Create memory first
         create_response = client.post("/api/memories", json=sample_memory_data)
@@ -144,8 +97,7 @@ class TestGetMemory:
         assert data["key"] == sample_memory_data["key"]
         assert data["value"] == sample_memory_data["value"]
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_get_memory_with_category_filter(self, db_session, sample_memory_data):
+    def test_get_memory_with_category_filter(self, client, db_session, sample_memory_data):
         """Test getting memory with category filter"""
         # Create memory
         client.post("/api/memories", json=sample_memory_data)
@@ -163,8 +115,7 @@ class TestGetMemory:
         )
         assert response.status_code == 404
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_get_memory_not_found(self, db_session):
+    def test_get_memory_not_found(self, client, db_session):
         """Test getting non-existent memory"""
         response = client.get("/api/memories/nonexistent_key")
         assert response.status_code == 404
@@ -174,8 +125,7 @@ class TestGetMemory:
 class TestListMemories:
     """Tests for GET /api/memories"""
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_list_memories_empty(self, db_session):
+    def test_list_memories_empty(self, client, db_session):
         """Test listing when no memories exist"""
         response = client.get("/api/memories")
 
@@ -185,8 +135,7 @@ class TestListMemories:
         assert data["total"] == 0
         assert data["category"] is None
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_list_memories_with_data(self, db_session):
+    def test_list_memories_with_data(self, client, db_session):
         """Test listing with multiple memories"""
         # Create multiple memories
         for i in range(3):
@@ -205,8 +154,7 @@ class TestListMemories:
         assert len(data["memories"]) == 3
         assert data["total"] == 3
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_list_memories_with_category_filter(self, db_session):
+    def test_list_memories_with_category_filter(self, client, db_session):
         """Test listing with category filter"""
         # Create memories in different categories
         for category in ["work", "personal", "work"]:
@@ -225,8 +173,7 @@ class TestListMemories:
         for memory in data["memories"]:
             assert memory["category"] == "work"
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_list_memories_pagination(self, db_session):
+    def test_list_memories_pagination(self, client, db_session):
         """Test pagination parameters"""
         # Create 5 memories
         for i in range(5):
@@ -256,8 +203,7 @@ class TestListMemories:
 class TestUpdateMemory:
     """Tests for PUT /api/memories/{key}"""
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_update_memory_success(self, db_session, sample_memory_data):
+    def test_update_memory_success(self, client, db_session, sample_memory_data):
         """Test successful memory update"""
         # Create memory
         client.post("/api/memories", json=sample_memory_data)
@@ -273,8 +219,7 @@ class TestUpdateMemory:
         assert data["tags"] == ["updated"]
         assert data["category"] == sample_memory_data["category"]  # Unchanged
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_update_memory_not_found(self, db_session):
+    def test_update_memory_not_found(self, client, db_session):
         """Test updating non-existent memory"""
         update_data = {"value": "Updated value"}
 
@@ -285,8 +230,7 @@ class TestUpdateMemory:
 class TestDeleteMemory:
     """Tests for DELETE /api/memories/{key}"""
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_delete_memory_success(self, db_session, sample_memory_data):
+    def test_delete_memory_success(self, client, db_session, sample_memory_data):
         """Test successful memory deletion"""
         # Create memory
         create_response = client.post("/api/memories", json=sample_memory_data)
@@ -304,8 +248,7 @@ class TestDeleteMemory:
         get_response = client.get(f"/api/memories/{sample_memory_data['key']}")
         assert get_response.status_code == 404
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_delete_memory_not_found(self, db_session):
+    def test_delete_memory_not_found(self, client, db_session):
         """Test deleting non-existent memory"""
         response = client.delete("/api/memories/nonexistent")
         assert response.status_code == 404
@@ -314,8 +257,7 @@ class TestDeleteMemory:
 class TestMemoryStats:
     """Tests for GET /api/memories/stats"""
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_stats_empty_database(self, db_session):
+    def test_stats_empty_database(self, client, db_session):
         """Test stats with empty database"""
         response = client.get("/api/memories/stats")
 
@@ -328,8 +270,7 @@ class TestMemoryStats:
         assert data["recent_memories"] == 0
         assert "storage_info" in data
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_stats_with_data(self, db_session):
+    def test_stats_with_data(self, client, db_session):
         """Test stats with sample data"""
         # Create memories in different categories
         memories_data = [
@@ -356,8 +297,7 @@ class TestMemoryStats:
 class TestAPIPerformance:
     """Performance tests for API endpoints"""
 
-    @pytest.mark.skip(reason="テーブル作成問題 - CI環境で修正が必要 (issue作成予定)")
-    def test_response_time_under_100ms(self, db_session, sample_memory_data):
+    def test_response_time_under_100ms(self, client, db_session, sample_memory_data):
         """Test that API responses are under 100ms"""
         import time
 
