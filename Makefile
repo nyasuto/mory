@@ -62,7 +62,7 @@ type-check: ## Run mypy type checking
 	@echo "Running mypy type checking..."
 	uv run mypy app/
 
-quality: lint format-check type-check ## Run all quality checks
+quality: lint format-check type-check test ## Run all quality checks
 	@echo "All quality checks completed"
 
 clean: ## Clean cache and build files
