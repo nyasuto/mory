@@ -320,8 +320,8 @@ class SearchService:
 
     def _cosine_similarity(self, a: list[float], b: np.ndarray) -> float:
         """Calculate cosine similarity between two vectors"""
-        a = np.array(a)
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        a_array: np.ndarray = np.array(a)
+        return np.dot(a_array, b) / (np.linalg.norm(a_array) * np.linalg.norm(b))
 
     def _calculate_like_score(self, memory: Memory, search_terms: list[str]) -> float:
         """Calculate relevance score for LIKE search"""

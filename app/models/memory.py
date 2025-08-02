@@ -65,7 +65,7 @@ class Memory(Base):
     @tags_list.setter
     def tags_list(self, value: list[str]):
         """Set tags from Python list"""
-        self.tags = json.dumps(value)
+        self.tags = json.dumps(value)  # type: ignore
 
     @property
     def has_embedding(self) -> bool:

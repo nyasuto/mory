@@ -4,7 +4,7 @@ SQLite with SQLAlchemy for Mory Server
 
 from typing import Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -73,8 +73,8 @@ def check_fts5_support(engine_override: Any = None) -> bool:
     db_engine = engine_override if engine_override else engine
     try:
         with db_engine.connect() as conn:
-            conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts_test USING fts5(content)")
-            conn.execute("DROP TABLE fts_test")
+            conn.execute(text("CREATE VIRTUAL TABLE IF NOT EXISTS fts_test USING fts5(content)"))
+            conn.execute(text("DROP TABLE fts_test"))
             return True
     except Exception:
         return False
@@ -86,7 +86,8 @@ def create_fts5_table(engine_override: Any = None) -> bool:
     try:
         with db_engine.connect() as conn:
             # Create FTS5 virtual table with Japanese tokenizer support
-            conn.execute("""
+            conn.execute(
+                text("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
                     id UNINDEXED,
                     category,
@@ -97,9 +98,11 @@ def create_fts5_table(engine_override: Any = None) -> bool:
                     tokenize='unicode61 remove_diacritics 2'
                 )
             """)
+            )
 
             # Create triggers for automatic synchronization
-            conn.execute("""
+            conn.execute(
+                text("""
                 CREATE TRIGGER IF NOT EXISTS memories_fts_insert
                 AFTER INSERT ON memories
                 BEGIN
@@ -107,8 +110,10 @@ def create_fts5_table(engine_override: Any = None) -> bool:
                     VALUES (new.id, new.category, new.key, new.value, new.tags);
                 END
             """)
+            )
 
-            conn.execute("""
+            conn.execute(
+                text("""
                 CREATE TRIGGER IF NOT EXISTS memories_fts_update
                 AFTER UPDATE ON memories
                 BEGIN
@@ -120,14 +125,17 @@ def create_fts5_table(engine_override: Any = None) -> bool:
                     WHERE id = new.id;
                 END
             """)
+            )
 
-            conn.execute("""
+            conn.execute(
+                text("""
                 CREATE TRIGGER IF NOT EXISTS memories_fts_delete
                 AFTER DELETE ON memories
                 BEGIN
                     DELETE FROM memories_fts WHERE id = old.id;
                 END
             """)
+            )
 
             conn.commit()
             return True
@@ -142,13 +150,15 @@ def rebuild_fts5_index(engine_override: Any = None) -> bool:
     try:
         with db_engine.connect() as conn:
             # Clear existing FTS5 data
-            conn.execute("DELETE FROM memories_fts")
+            conn.execute(text("DELETE FROM memories_fts"))
 
             # Populate FTS5 table with existing data
-            conn.execute("""
+            conn.execute(
+                text("""
                 INSERT INTO memories_fts(id, category, key, value, tags)
                 SELECT id, category, key, value, tags FROM memories
             """)
+            )
 
             conn.commit()
             return True
