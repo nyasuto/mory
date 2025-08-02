@@ -1,46 +1,37 @@
 # 🦔 Mory - パーソナルメモリMCPサーバー
 
-> **🐍 Python版PoC開始！** Python実装によるモダンなMCPサーバーをClaude Desktopで利用可能です。
+> **✅ Phase 2 完了！** 高度な検索機能とObsidian連携がClaude Desktopで利用可能です。
 
 MoryはModel Context Protocol (MCP) サーバーで、Claude DesktopやMCP対応クライアントにパーソナルメモリ機能を提供します。会話を跨いで情報を記憶し、簡単に取得できます。
 
-*ChatGPTのメモリ機能のように、Claudeに永続的なメモリ機能を追加して、よりパーソナライズされた対話を実現するPython製MCPサーバーです。*
+*ChatGPTのメモリ機能のように、Claudeに永続的なメモリ機能を追加して、よりパーソナライズされた対話を実現するMCPサーバーです。*
 
 ## 🎯 主要機能
 
-### コアメモリシステム（Python実装）
+### コアメモリシステム
 - ✅ **永続的メモリ**: 会話を跨いで個人情報を記憶・取得
 - ✅ **プライバシー重視**: すべてのデータをローカル保存、クラウド依存なし
 - ✅ **カテゴリ管理**: 効率的な情報整理
 - ✅ **操作ログ**: すべてのメモリ操作を監査証跡として記録
-- ✅ **非同期処理**: Python async/awaitによる高速処理
-- ✅ **型安全性**: Pydantic v2によるデータ検証
 
-### 高度な検索機能
+### 高度な検索機能 (Phase 2)
 - ✅ **全文検索**: 関連度スコアリング付きの高度なテキスト検索
 - ✅ **スマートフィルタリング**: カテゴリベースの絞り込みと曖昧検索
 - ✅ **関連度ランキング**: スコアベースの検索結果順位付け
-- 🚧 **セマンティック検索**: sentence-transformersによる意味検索（Phase 3）
 
-### 将来の機能拡張
-- 🚧 **Obsidian連携**: ノートインポート/エクスポート機能
-- 🚧 **AI要約**: メモリ内容の自動要約・カテゴリ化
-- 🚧 **推奨システム**: 関連メモリの自動提案
+### Obsidian連携 (Phase 2)
+- ✅ **ボルトインポート**: Obsidianボルト全体または特定カテゴリのインポート
+- ✅ **ノート生成**: メモリからテンプレートを使用したノート作成
+- ✅ **テンプレートシステム**: 日記・サマリー・レポートテンプレート（日本語対応）
+- ✅ **高度なオプション**: ドライラン、カテゴリマッピング、重複処理
 
 ## 🚀 クイックスタート
 
-### 1. Python環境のセットアップ
+### 1. インストール
 ```bash
 git clone https://github.com/nyasuto/mory.git
 cd mory
-
-# 仮想環境の作成
-python3 -m venv venv
-source venv/bin/activate  # Linux/macOS
-# venv\Scripts\activate    # Windows
-
-# 依存関係のインストール
-pip install -e .
+make build
 ```
 
 ### 2. Claude Desktop設定
@@ -53,11 +44,7 @@ Claude Desktop設定ファイルに追加：
 {
   "mcpServers": {
     "mory": {
-      "command": "python",
-      "args": ["/full/path/to/mory/main.py"],
-      "env": {
-        "PYTHONPATH": "/full/path/to/mory/src"
-      }
+      "command": "/full/path/to/mory/bin/mory"
     }
   }
 }
@@ -79,31 +66,30 @@ Claude Desktop設定ファイルに追加：
 
 **🔧 技術仕様**: [API.md](./API.md) で詳細なAPIリファレンスと技術仕様を確認してください。
 
-## 🛠️ 利用可能なMCPツール（Python実装）
+## 🛠️ 利用可能なMCPツール
 
 1. **save_memory** - カテゴリとタグ付きで情報を保存
-2. **get_memory** - キーやIDで特定のメモリを取得  
+2. **get_memory** - キーやIDで特定のメモリを取得
 3. **list_memories** - オプションのカテゴリフィルタ付きでメモリを一覧表示
 4. **search_memories** - 関連度スコアリング付きの高度な全文検索
-5. **delete_memory** - 指定したメモリを削除（新機能）
-
-> **注意**: Python版ではObsidian連携機能は開発中です。コアメモリ機能のPoCが完了後に実装予定です。
+5. **obsidian_import** - Obsidianボルトのノートをメモリにインポート
+6. **generate_obsidian_note** - メモリからテンプレートを使用してノート生成
 
 ## 📋 開発状況
 
-### 🐍 Python版PoC（現在）
-- ✅ **コアメモリ管理**: save/get/list/delete/search
-- ✅ **関連度スコアリング付き検索**: 高度なテキスト検索
-- ✅ **非同期処理**: Python async/awaitによる高速化
-- ✅ **型安全性**: Pydantic v2によるデータ検証
-- ✅ **テストカバレッジ**: 95%+ Go実装互換性テスト
-- ✅ **Claude Desktop対応**: 完全なMCP v1.0互換
+### ✅ Phase 2 完了
+- コアメモリ管理システム
+- 関連度スコアリング付き高度検索
+- インポート・エクスポート機能付きObsidian連携
+- テンプレートベースのノート生成
+- 包括的なテストスイート
+- Claude Desktop対応プロダクション版
 
-### 📋 今後の予定
-- 🚧 **Obsidian連携**: ノートインポート/エクスポート機能
-- 🚧 **セマンティック検索**: sentence-transformersによる意味検索
-- 🚧 **AI自動カテゴリ化**: 自動分類・タグ付け機能
-- 🚧 **推奨システム**: 関連メモリの自動提案
+### 📋 Phase 3 (予定)
+- ベクトル埋め込みによるセマンティック検索
+- AI による自動カテゴリ分類
+- スマートなコンテンツ推奨
+- 高度な分析・インサイト機能
 
 ## 🔒 プライバシー・セキュリティ
 

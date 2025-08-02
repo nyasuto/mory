@@ -1,97 +1,84 @@
-# 🔧 Mory Python版 APIリファレンス・技術文書
+# 🔧 Mory APIリファレンス・技術文書
 
-この文書では、Mory Python実装MCPサーバーの詳細な技術仕様を提供します。
+この文書では、Mory MCPサーバーの詳細な技術仕様を提供します。
 
 ## 📋 目次
 
 - [データモデル](#データモデル)
 - [MCPツールリファレンス](#mcpツールリファレンス)
-- [Python実装アーキテクチャ](#python実装アーキテクチャ)
+- [設定](#設定)
 - [ストレージアーキテクチャ](#ストレージアーキテクチャ)
 - [使用例](#使用例)
 - [エラーハンドリング](#エラーハンドリング)
 
 ## データモデル
 
-### コアタイプ（Python実装）
+### コアタイプ
 
-```python
-from datetime import datetime, UTC
-from pydantic import BaseModel, Field
+```go
+type Memory struct {
+    ID        string    `json:"id"`         // Auto-generated: memory_20250127123456
+    Category  string    `json:"category"`   // User-defined category
+    Key       string    `json:"key"`        // Optional user-friendly alias
+    Value     string    `json:"value"`      // Stored content
+    Tags      []string  `json:"tags"`       // Related tags for search
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+}
 
-class Memory(BaseModel):
-    """Memory represents a stored memory item."""
-    
-    id: str = Field(
-        default_factory=lambda: f"memory_{int(datetime.now().timestamp() * 1_000_000)}"
-    )
-    category: str = Field(..., description="Category of the memory")
-    key: str = Field(default="", description="Optional user-friendly alias")
-    value: str = Field(..., description="The actual memory content")
-    tags: list[str] = Field(
-        default_factory=list, description="Related tags for future search"
-    )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    
-    # Semantic search fields (Phase 3予定)
-    embedding: list[float] | None = Field(
-        default=None, description="Semantic embedding vector"
-    )
-
-class OperationLog(BaseModel):
-    """Log entry for memory operations."""
-    
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    operation_id: str = Field(default_factory=lambda: f"op_{uuid4().hex[:8]}")
-    operation: str = Field(..., description="Operation type (save, get, delete, etc.)")
-    key: str | None = Field(default=None, description="Memory key if applicable")
-    before: Memory | None = Field(
-        default=None, description="Memory state before operation"
-    )
-    after: Memory | None = Field(
-        default=None, description="Memory state after operation"
-    )
-    success: bool = Field(default=True, description="Whether operation succeeded")
-    error: str | None = Field(
-        default=None, description="Error message if operation failed"
-    )
+type OperationLog struct {
+    Timestamp   time.Time `json:"timestamp"`
+    OperationID string    `json:"operation_id"`
+    Operation   string    `json:"operation"`    // save, update, delete
+    Key         string    `json:"key,omitempty"`
+    Before      *Memory   `json:"before,omitempty"`
+    After       *Memory   `json:"after,omitempty"`
+    Success     bool      `json:"success"`
+    Error       string    `json:"error,omitempty"`
+}
 ```
 
-### 検索タイプ
+### 検索タイプ（Phase 2）
 
-```python
-class SearchResult(BaseModel):
-    """Search result with relevance score."""
-    
-    memory: Memory
-    score: float = Field(..., ge=0.0, le=1.0, description="Relevance score (0.0 - 1.0)")
+```go
+type SearchResult struct {
+    Memory *Memory `json:"memory"`
+    Score  float64 `json:"score"` // Relevance score (0.0 - 1.0)
+}
 
-class SearchQuery(BaseModel):
-    """Search query parameters."""
-    
-    query: str = Field(..., description="Search query string")
-    category: str | None = Field(default=None, description="Optional category filter")
-    limit: int = Field(
-        default=20, ge=1, le=100, description="Maximum number of results"
-    )
-    min_score: float = Field(
-        default=0.0, ge=0.0, le=1.0, description="Minimum relevance score"
-    )
+type SearchQuery struct {
+    Query    string `json:"query"`              // Search query string
+    Category string `json:"category,omitempty"` // Optional category filter
+}
 ```
 
-### エラーハンドリング
+### Obsidian連携タイプ（Phase 2）
 
-```python
-class MemoryNotFoundError(Exception):
-    """Raised when a memory is not found."""
-    
-    def __init__(self, key: str) -> None:
-        self.key = key
-        super().__init__(f"Memory not found: {key}")
+```go
+type ImportResult struct {
+    TotalFiles       int      `json:"total_files"`
+    ImportedFiles    int      `json:"imported_files"`
+    SkippedFiles     int      `json:"skipped_files"`
+    DuplicateFiles   int      `json:"duplicate_files"`
+    Errors           []string `json:"errors"`
+    ImportedMemories []*Memory `json:"imported_memories"`
+    DryRun           bool     `json:"dry_run"`
+}
+
+type GeneratedNote struct {
+    Title         string        `json:"title"`
+    Content       string        `json:"content"`
+    OutputPath    string        `json:"output_path"`
+    MemoryCount   int          `json:"memory_count"`
+    RelatedCount  int          `json:"related_count"`
+    UsedMemories  []*Memory    `json:"used_memories"`
+    RelatedLinks  []string     `json:"related_links"`
+    GeneratedAt   time.Time    `json:"generated_at"`
+    TemplateUsed  string       `json:"template_used"`
+}
 ```
 
-## MCPツールリファレンス（Python実装）
+## MCPツールリファレンス
 
 ### コアメモリツール
 
@@ -103,10 +90,6 @@ class MemoryNotFoundError(Exception):
 - `category` (string, 必須): メモリのカテゴリ
 - `value` (string, 必須): 保存する値
 - `key` (string, オプション): メモリのユーザーフレンドリーな別名
-- `tags` (array[string], オプション): 検索用タグのリスト
-
-**戻り値:**
-- `memory_id` (string): 自動生成されたメモリID
 
 **例:**
 ```json
@@ -169,79 +152,77 @@ class MemoryNotFoundError(Exception):
 }
 ```
 
-#### 5. delete_memory
+### Obsidian連携ツール（Phase 2）
 
-指定されたキーまたはIDでメモリを削除します。
+#### 5. obsidian_import
+
+Obsidianボルトのノートをメモリストレージにインポートします。
 
 **パラメータ:**
-- `key` (string, 必須): 削除するメモリキーまたはID
+- `import_type` (string, 必須): インポート種類: 'vault', 'category', または 'file'
+- `path` (string, オプション): 特定ファイルパス（'file'タイプ用）またはカテゴリ名（'category'タイプ用）
+- `dry_run` (boolean, オプション): 保存せずにインポートをプレビュー（デフォルト: false）
+- `category_mapping` (object, オプション): フォルダ名をカスタムカテゴリにマッピング
+- `skip_duplicates` (boolean, オプション): 重複インポートをスキップ（デフォルト: true）
 
 **例:**
 ```json
 {
-  "key": "old-note-id"
+  "import_type": "vault",
+  "dry_run": false,
+  "skip_duplicates": true,
+  "category_mapping": {
+    "Daily Notes": "journal",
+    "Work": "professional"
+  }
 }
 ```
 
-## Python実装アーキテクチャ
+#### 6. generate_obsidian_note
 
-### 非同期処理
+テンプレートを使用してメモリからObsidianノートを生成します。
 
-Python実装では`async/await`パターンを使用：
+**パラメータ:**
+- `template` (string, 必須): テンプレートタイプ: 'daily', 'summary', または 'report'
+- `title` (string, 必須): 生成されるノートのタイトル
+- `category` (string, オプション): メモリのカテゴリフィルタ
+- `output_path` (string, オプション): カスタム出力ファイルパス
+- `include_related` (boolean, オプション): 関連メモリを含める（デフォルト: true）
 
-```python
-async def save(self, memory: Memory) -> str:
-    """Save a memory and return its ID."""
-    self._memories[memory.id] = memory
-    await self.log_operation(log)
-    await self._save_memories()
-    return memory.id
+**利用可能なテンプレート:**
+- **daily**: 日次ノート用の時系列メモリ整理
+- **summary**: サマリー用のカテゴリベースメモリ編集
+- **report**: 統計付きの構造化プロジェクト文書
+
+**例:**
+```json
+{
+  "template": "daily",
+  "title": "今日の学習まとめ",
+  "category": "learning",
+  "include_related": true
+}
 ```
-
-### 型安全性
-
-Pydantic v2を使用したデータ検証：
-
-```python
-# 自動的にバリデーションとシリアライゼーション
-memory = Memory(
-    category="learning",
-    value="Python async programming",
-    tags=["python", "async"]
-)
-```
-
-### 将来の機能拡張
-
-- 🚧 **Obsidian連携**: ノートインポート/エクスポート機能（開発予定）
-- 🚧 **セマンティック検索**: sentence-transformersによる意味検索
-- 🚧 **AI自動分類**: 自動カテゴリ化・タグ付け機能
-
-## ストレージアーキテクチャ
-
-### JSONベースストレージ
-
-Python実装では、JSONファイルベースの永続化を使用：
-
-```
-data/
-├── memories.json      # メモリデータ
-└── operations.json    # 操作ログ
-```
-
-### データ互換性
-
-Go実装との完全な互換性を維持：
-
-- 同一のJSONスキーマ
-- 同一のID生成アルゴリズム
-- 同一のタイムスタンプ形式（ISO 8601 UTC）
 
 ## 設定
 
 ### 環境変数
 
-- `MORY_DATA_DIR`: カスタムデータディレクトリパス（デフォルト: `./data`）
+- `MORY_DATA_DIR`: カスタムデータディレクトリパス
+- `MORY_OBSIDIAN_VAULT_PATH`: 連携用Obsidianボルトへのパス
+
+### 設定ファイル
+
+`~/.mory/config.json` を作成するか、環境変数で指定:
+
+```json
+{
+  "data_dir": "/custom/path/to/data",
+  "obsidian": {
+    "vault_path": "/path/to/obsidian/vault"
+  }
+}
+```
 
 ### Claude Desktop連携
 
@@ -254,86 +235,121 @@ Claude Desktop設定に追加:
 {
   "mcpServers": {
     "mory": {
-      "command": "python",
-      "args": ["/full/path/to/mory/main.py"],
-      "env": {
-        "PYTHONPATH": "/full/path/to/mory/src"
-      }
+      "command": "/full/path/to/mory/bin/mory"
     }
   }
 }
+```
+
+## ストレージアーキテクチャ
+
+### ファイル構造
+```
+~/.mory/                           # デフォルトデータディレクトリ
+├── memories.json                  # メモリストレージ（JSON）
+├── operations.log                 # 操作監査ログ（JSONL）
+└── config.json                    # 設定ファイル
+```
+
+### ストレージ機能
+- **JSONベース**: シンプルで人間が読める形式
+- **ファイルロック**: 同時アクセス保護
+- **操作ログ**: 完全な監査証跡
+- **バックアップフレンドリー**: プレーンテキストファイル、バックアップ・復元が簡単
+
+### キー生成戦略
+```go
+// 自動生成IDフォーマット: memory_20250127123456
+id := fmt.Sprintf("memory_%s", time.Now().Format("20060102150405"))
 ```
 
 ## 使用例
 
 ### 基本メモリ操作
-```json
+```go
 // メモリの保存
-{
-  "tool": "save_memory",
-  "parameters": {
-    "category": "learning",
-    "key": "python-async",
-    "value": "Pythonのasync/awaitパターンについて学習",
-    "tags": ["python", "async", "programming"]
-  }
-}
+save_memory: category="learning", key="go-basics", value="Goのチャンネルとゴルーチンについて学習"
 
 // メモリの取得
-{
-  "tool": "get_memory",
-  "parameters": {
-    "key": "python-async"
-  }
-}
+get_memory: key="go-basics"
 
 // カテゴリ別メモリ一覧
-{
-  "tool": "list_memories",
-  "parameters": {
-    "category": "learning"
-  }
-}
+list_memories: category="learning"
 ```
 
 ### 高度な検索
-```json
+```go
 // 全文検索
-{
-  "tool": "search_memories",
-  "parameters": {
-    "query": "async await Python",
-    "category": "learning"
-  }
-}
+search_memories: query="ゴルーチン チャンネル", category="learning"
 
 // 全カテゴリ横断検索
-{
-  "tool": "search_memories",
-  "parameters": {
-    "query": "API設計パターン"
-  }
-}
+search_memories: query="API設計パターン"
+```
+
+### Obsidian連携
+```go
+// ボルト全体のインポート
+obsidian_import: import_type="vault", skip_duplicates=true
+
+// マッピング付き特定カテゴリのインポート
+obsidian_import: import_type="category", path="Projects", 
+                category_mapping={"Projects": "work"}
+
+// 日次ノートの生成
+generate_obsidian_note: template="daily", title="今日の進捗", 
+                       category="work", include_related=true
+
+// サマリーレポートの生成
+generate_obsidian_note: template="report", title="週間まとめ", 
+                       output_path="reports/week-summary.md"
 ```
 
 ## エラーハンドリング
 
-### 一般的なエラー
+### 一般的なエラータイプ
 
-- `MemoryNotFoundError`: 指定されたキーやIDのメモリが見つからない
-- `ValidationError`: 無効なパラメータや型エラー
-- `FileNotFoundError`: データファイルにアクセスできない
+1. **バリデーションエラー**: 無効なパラメータや必須フィールドの不足
+2. **ストレージエラー**: ファイルシステムの問題、権限、ディスク容量
+3. **設定エラー**: 無効な設定、Obsidianボルトパスの不足
+4. **インポートエラー**: Markdownパース問題、ファイルアクセス問題
 
-### エラーレスポンス例
+### エラーレスポンス形式
 
 ```json
 {
-  "error": {
-    "type": "MemoryNotFoundError",
-    "message": "Memory not found: invalid-key",
-    "details": {
-      "key": "invalid-key"
-    }
-  }
+  "error": "メモリが見つかりません",
+  "details": "キー 'nonexistent' のメモリが見つかりません",
+  "code": "MEMORY_NOT_FOUND"
 }
+```
 
+### ベストプラクティス
+
+1. **処理前に常に入力を検証**
+2. **実行可能な情報と共に明確なエラーメッセージを提供**
+3. **デバッグと監査目的で操作をログ記録**
+4. **ファイルロックで同時アクセスを適切に処理**
+5. **インポート操作前にObsidian設定を検証**
+
+## パフォーマンス考慮事項
+
+### 検索パフォーマンス
+- **インデックス化**: 高速テキスト検索のためのインメモリインデックス
+- **キャッシュ**: 繰り返しクエリのための検索結果キャッシュ
+- **ページ化**: 大きな結果セットを効率的に処理
+
+### メモリ使用量
+- **遅延読み込み**: オンデマンドでのメモリ読み込み
+- **メモリ制限**: 大きな結果セットの自動クリーンアップ
+- **同時安全性**: 適切なロックによるスレッドセーフ操作
+
+### スケーラビリティ
+- **ファイルベースストレージ**: 数千のメモリに適している
+- **検索最適化**: 関連度スコアリングのための効率的アルゴリズム
+- **将来の最適化**: データベースバックエンド移行への準備完了
+
+---
+
+実装詳細については、`internal/` ディレクトリのソースコードを参照してください。
+セットアップ手順については、[QUICKSTART.md](./QUICKSTART.md)を参照してください。
+貢献ガイドラインについては、[CONTRIBUTING.md](./CONTRIBUTING.md)を参照してください。
