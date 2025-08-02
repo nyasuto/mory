@@ -1,24 +1,23 @@
 """
 MCP (Model Context Protocol) server implementation for Mory
-Provides memory management tools for Claude Desktop integration
+Provides memory management tools for Claude Desktop integration via HTTP API
 """
 
 import json
 import logging
+import os
 from typing import Any
 
+import httpx
 from mcp import types
 from mcp.server import Server
-from sqlalchemy.orm import Session
-
-from .core.database import SessionLocal
-from .models.memory import Memory
-from .models.schemas import MemoryCreate, SearchRequest
-from .services.search import search_service
 
 # Initialize MCP server
 mcp_server = Server("mory")
 logger = logging.getLogger(__name__)
+
+# API base URL from environment
+API_BASE_URL = os.getenv("MORY_API_URL", "http://localhost:8080")
 
 
 @mcp_server.list_tools()
@@ -132,17 +131,17 @@ async def handle_list_tools() -> list[types.Tool]:
 
 @mcp_server.call_tool()
 async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
-    """Execute MCP tool calls"""
+    """Execute MCP tool calls via HTTP API"""
     try:
-        with SessionLocal() as db:
+        async with httpx.AsyncClient() as client:
             if name == "save_memory":
-                return await _save_memory(arguments, db)
+                return await _save_memory(arguments, client)
             elif name == "get_memory":
-                return await _get_memory(arguments, db)
+                return await _get_memory(arguments, client)
             elif name == "list_memories":
-                return await _list_memories(arguments, db)
+                return await _list_memories(arguments, client)
             elif name == "search_memories":
-                return await _search_memories(arguments, db)
+                return await _search_memories(arguments, client)
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
@@ -151,201 +150,126 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[types.T
         return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
 
-async def _save_memory(arguments: dict[str, Any], db: Session) -> list[types.TextContent]:
-    """Save or update a memory"""
+async def _save_memory(
+    arguments: dict[str, Any], client: httpx.AsyncClient
+) -> list[types.TextContent]:
+    """Save or update a memory via HTTP API"""
     try:
-        # Create memory data object
-        memory_data = MemoryCreate(
-            category=arguments["category"],
-            key=arguments.get("key"),
-            value=arguments["value"],
-            tags=arguments.get("tags", []),
+        # Prepare request data
+        memory_data = {
+            "category": arguments["category"],
+            "key": arguments.get("key"),
+            "value": arguments["value"],
+            "tags": arguments.get("tags", []),
+        }
+
+        # Make HTTP request to FastAPI server
+        response = await client.post(
+            f"{API_BASE_URL}/api/memories",
+            json=memory_data,
+            headers={"Content-Type": "application/json"},
         )
+        response.raise_for_status()
 
-        # Check if memory with this key already exists
-        existing_memory = None
-        if memory_data.key:
-            existing_memory = (
-                db.query(Memory)
-                .filter(Memory.key == memory_data.key, Memory.category == memory_data.category)
-                .first()
-            )
-
-        if existing_memory:
-            # Update existing memory
-            existing_memory.value = memory_data.value
-            existing_memory.tags_list = memory_data.tags
-            from datetime import datetime
-
-            existing_memory.updated_at = datetime.utcnow()
-            db.commit()
-            db.refresh(existing_memory)
-
-            result = {
-                "action": "updated",
-                "id": existing_memory.id,
-                "category": existing_memory.category,
-                "key": existing_memory.key,
-                "value": existing_memory.value[:100] + "..."
-                if len(existing_memory.value) > 100
-                else existing_memory.value,
-                "tags": existing_memory.tags_list,
-                "updated_at": existing_memory.updated_at.isoformat(),
-            }
-        else:
-            # Create new memory
-            new_memory = Memory(
-                category=memory_data.category,
-                key=memory_data.key,
-                value=memory_data.value,
-                tags_list=memory_data.tags,
-            )
-
-            db.add(new_memory)
-            db.commit()
-            db.refresh(new_memory)
-
-            result = {
-                "action": "created",
-                "id": new_memory.id,
-                "category": new_memory.category,
-                "key": new_memory.key,
-                "value": new_memory.value[:100] + "..."
-                if len(new_memory.value) > 100
-                else new_memory.value,
-                "tags": new_memory.tags_list,
-                "created_at": new_memory.created_at.isoformat(),
-            }
-
+        result = response.json()
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
+    except httpx.HTTPStatusError as e:
+        error_detail = e.response.text if e.response else str(e)
+        raise ValueError(f"HTTP {e.response.status_code}: {error_detail}") from e
     except Exception as e:
         raise ValueError(f"Failed to save memory: {str(e)}") from e
 
 
-async def _get_memory(arguments: dict[str, Any], db: Session) -> list[types.TextContent]:
-    """Retrieve a specific memory by key"""
+async def _get_memory(
+    arguments: dict[str, Any], client: httpx.AsyncClient
+) -> list[types.TextContent]:
+    """Retrieve a specific memory by key via HTTP API"""
     try:
         key = arguments["key"]
         category = arguments.get("category")
 
-        query = db.query(Memory).filter(Memory.key == key)
+        # Build query parameters
+        params = {}
         if category:
-            query = query.filter(Memory.category == category)
+            params["category"] = category
 
-        memory = query.first()
+        # Make HTTP request
+        response = await client.get(f"{API_BASE_URL}/api/memories/{key}", params=params)
+        response.raise_for_status()
 
-        if not memory:
-            error_msg = f"Memory with key '{key}'"
-            if category:
-                error_msg += f" in category '{category}'"
-            error_msg += " not found"
-            raise ValueError(error_msg)
-
-        result = {
-            "id": memory.id,
-            "category": memory.category,
-            "key": memory.key,
-            "value": memory.value,
-            "tags": memory.tags_list,
-            "created_at": memory.created_at.isoformat(),
-            "updated_at": memory.updated_at.isoformat(),
-        }
-
+        result = response.json()
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            error_msg = f"Memory with key '{key}'"
+            if arguments.get("category"):
+                error_msg += f" in category '{arguments['category']}'"
+            error_msg += " not found"
+            raise ValueError(error_msg) from e
+        else:
+            error_detail = e.response.text if e.response else str(e)
+            raise ValueError(f"HTTP {e.response.status_code}: {error_detail}") from e
     except Exception as e:
         raise ValueError(f"Failed to get memory: {str(e)}") from e
 
 
-async def _list_memories(arguments: dict[str, Any], db: Session) -> list[types.TextContent]:
-    """List memories with optional filtering"""
+async def _list_memories(
+    arguments: dict[str, Any], client: httpx.AsyncClient
+) -> list[types.TextContent]:
+    """List memories with optional filtering via HTTP API"""
     try:
-        category = arguments.get("category")
-        limit = arguments.get("limit", 20)
-        offset = arguments.get("offset", 0)
+        # Build query parameters
+        params = {}
+        if arguments.get("category"):
+            params["category"] = arguments["category"]
+        if arguments.get("limit"):
+            params["limit"] = arguments["limit"]
+        if arguments.get("offset"):
+            params["offset"] = arguments["offset"]
 
-        query = db.query(Memory)
+        # Make HTTP request
+        response = await client.get(f"{API_BASE_URL}/api/memories", params=params)
+        response.raise_for_status()
 
-        if category:
-            query = query.filter(Memory.category == category)
-
-        # Get total count
-        total = query.count()
-
-        # Apply pagination and ordering
-        memories = query.order_by(Memory.updated_at.desc()).offset(offset).limit(limit).all()
-
-        result = {
-            "memories": [
-                {
-                    "id": memory.id,
-                    "category": memory.category,
-                    "key": memory.key,
-                    "value": memory.value[:100] + "..."
-                    if len(memory.value) > 100
-                    else memory.value,
-                    "tags": memory.tags_list,
-                    "created_at": memory.created_at.isoformat(),
-                    "updated_at": memory.updated_at.isoformat(),
-                }
-                for memory in memories
-            ],
-            "total": total,
-            "category": category,
-            "limit": limit,
-            "offset": offset,
-        }
-
+        result = response.json()
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
+    except httpx.HTTPStatusError as e:
+        error_detail = e.response.text if e.response else str(e)
+        raise ValueError(f"HTTP {e.response.status_code}: {error_detail}") from e
     except Exception as e:
         raise ValueError(f"Failed to list memories: {str(e)}") from e
 
 
-async def _search_memories(arguments: dict[str, Any], db: Session) -> list[types.TextContent]:
-    """Search memories using full-text search"""
+async def _search_memories(
+    arguments: dict[str, Any], client: httpx.AsyncClient
+) -> list[types.TextContent]:
+    """Search memories using full-text search via HTTP API"""
     try:
-        search_request = SearchRequest(
-            query=arguments["query"],
-            category=arguments.get("category"),
-            tags=arguments.get("tags", []),
-            limit=arguments.get("limit", 10),
-        )
-
-        # Use the existing search service
-        search_response = await search_service.search_memories(search_request, db)
-
-        # Convert to JSON-serializable format
-        result = {
-            "query": search_response.query,
-            "results": [
-                {
-                    "memory": {
-                        "id": search_result.memory.id,
-                        "category": search_result.memory.category,
-                        "key": search_result.memory.key,
-                        "value": search_result.memory.value,
-                        "tags": search_result.memory.tags,
-                        "created_at": search_result.memory.created_at.isoformat()
-                        if search_result.memory.created_at
-                        else None,
-                        "updated_at": search_result.memory.updated_at.isoformat()
-                        if search_result.memory.updated_at
-                        else None,
-                    },
-                    "score": search_result.score,
-                    "search_type": search_result.search_type,
-                }
-                for search_result in search_response.results
-            ],
-            "total": search_response.total,
-            "search_type": search_response.search_type,
-            "execution_time_ms": search_response.execution_time_ms,
+        # Prepare search request data
+        search_data = {
+            "query": arguments["query"],
+            "category": arguments.get("category"),
+            "tags": arguments.get("tags", []),
+            "limit": arguments.get("limit", 10),
         }
 
+        # Make HTTP request
+        response = await client.post(
+            f"{API_BASE_URL}/api/memories/search",
+            json=search_data,
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+
+        result = response.json()
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
+    except httpx.HTTPStatusError as e:
+        error_detail = e.response.text if e.response else str(e)
+        raise ValueError(f"HTTP {e.response.status_code}: {error_detail}") from e
     except Exception as e:
         raise ValueError(f"Failed to search memories: {str(e)}") from e
 
@@ -354,6 +278,7 @@ async def _search_memories(arguments: dict[str, Any], db: Session) -> list[types
 async def start_mcp_server():
     """Start the MCP server"""
     logger.info("Starting Mory MCP Server...")
+    logger.info(f"API Base URL: {API_BASE_URL}")
 
     # The server will be started by the MCP runtime
     # This function is here for any initialization we might need
