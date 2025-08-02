@@ -34,7 +34,7 @@ app.include_router(memories_router, prefix="/api", tags=["memories"])
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     """Initialize application on startup"""
     # Create database tables
     create_tables()
@@ -47,13 +47,13 @@ async def startup_event():
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
+async def shutdown_event() -> None:
     """Cleanup on application shutdown"""
     print("🛑 Mory Server shutting down")
 
 
 @app.get("/")
-async def root():
+async def root() -> dict:
     """Root endpoint with basic information"""
     return {
         "service": "Mory Server",

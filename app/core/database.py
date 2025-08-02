@@ -2,6 +2,8 @@
 SQLite with SQLAlchemy for Mory Server
 """
 
+from typing import Any
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -20,7 +22,7 @@ engine = create_engine(
 
 # Enable SQLite optimizations and FTS5
 @event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
+def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
     """Set SQLite optimizations and enable FTS5"""
     cursor = dbapi_connection.cursor()
 
@@ -53,7 +55,7 @@ def get_db():
         db.close()
 
 
-def create_tables(engine_override=None):
+def create_tables(engine_override: Any = None) -> None:
     """Create all database tables and FTS5 search tables"""
     db_engine = engine_override if engine_override else engine
     Base.metadata.create_all(bind=db_engine)
@@ -66,7 +68,7 @@ def create_tables(engine_override=None):
         print("⚠️  FTS5 not available, falling back to LIKE search")
 
 
-def check_fts5_support(engine_override=None) -> bool:
+def check_fts5_support(engine_override: Any = None) -> bool:
     """Check if SQLite FTS5 extension is available"""
     db_engine = engine_override if engine_override else engine
     try:
@@ -78,7 +80,7 @@ def check_fts5_support(engine_override=None) -> bool:
         return False
 
 
-def create_fts5_table(engine_override=None):
+def create_fts5_table(engine_override: Any = None) -> bool:
     """Create FTS5 virtual table for full-text search"""
     db_engine = engine_override if engine_override else engine
     try:
@@ -134,7 +136,7 @@ def create_fts5_table(engine_override=None):
         return False
 
 
-def rebuild_fts5_index(engine_override=None):
+def rebuild_fts5_index(engine_override: Any = None) -> bool:
     """Rebuild FTS5 index with all existing memories"""
     db_engine = engine_override if engine_override else engine
     try:

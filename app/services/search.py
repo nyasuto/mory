@@ -16,7 +16,7 @@ from ..models.schemas import MemoryResponse, SearchRequest, SearchResponse, Sear
 class SearchService:
     """Service for memory search operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize search service with available search backends"""
         self.fts5_available = check_fts5_support()
         self.semantic_available = settings.is_semantic_available

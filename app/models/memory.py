@@ -4,6 +4,7 @@ SQLAlchemy model compatible with existing CLI data structure
 
 import json
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import Column, DateTime, Index, LargeBinary, String, Text
@@ -40,7 +41,7 @@ class Memory(Base):
     )
 
     @validates("tags")
-    def validate_tags(self, key, value):
+    def validate_tags(self, key: str, value: Any) -> str:
         """Ensure tags is always valid JSON"""
         if isinstance(value, list):
             return json.dumps(value)
@@ -71,7 +72,7 @@ class Memory(Base):
         """Check if memory has semantic embedding"""
         return self.embedding is not None and len(self.embedding) > 0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses"""
         return {
             "id": self.id,
@@ -84,5 +85,5 @@ class Memory(Base):
             "has_embedding": self.has_embedding,
         }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Memory(id='{self.id}', category='{self.category}', key='{self.key}')>"
