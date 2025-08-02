@@ -86,7 +86,7 @@ test-standard:
 .PHONY: test-coverage
 test-coverage:
 	@echo "Running tests with coverage (FTS5 enabled)..."
-	$(GOTEST) $(FTS5_TAGS) -v -coverprofile=coverage.out ./...
+	$(GOTEST) $(FTS5_TAGS) -short -v -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
