@@ -73,8 +73,13 @@ func Run(opts RunOptions) error {
 	log.Printf("[Main]   Memories file: %s", memoriesFile)
 	log.Printf("[Main]   Log file: %s", logFile)
 
-	store := memory.NewJSONMemoryStore(memoriesFile, logFile)
-	log.Printf("[Main] Memory store initialized successfully")
+	// Initialize storage factory
+	factory := memory.NewStorageFactory(cfg)
+	store, err := factory.CreateMemoryStore()
+	if err != nil {
+		return fmt.Errorf("failed to create memory store: %w", err)
+	}
+	log.Printf("[Main] Memory store initialized successfully (type: %s)", factory.GetStorageType())
 
 	// Initialize semantic search if OpenAI API key is provided
 	if cfg.Semantic != nil && cfg.Semantic.OpenAIAPIKey != "" && cfg.Semantic.Enabled {
