@@ -78,7 +78,7 @@ class Memory(Base):
             "category": self.category,
             "key": self.key,
             "value": self.value,
-            "tags": self.tags_list,
+            "tags": self.tags_list,  # This already returns a Python list
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "has_embedding": self.has_embedding,
