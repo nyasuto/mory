@@ -32,77 +32,22 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
-def setup_test_database():
-    """Ensure database is properly set up for testing"""
-    # Force creation of all tables
-    Base.metadata.drop_all(bind=engine)  # Clean start
-    Base.metadata.create_all(bind=engine)
-    
-    # Initialize FTS5 tables for testing
-    try:
-        with engine.connect() as connection:
-            # Create FTS5 virtual table
-            connection.execute(text("""
-                CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
-                    id UNINDEXED,
-                    category,
-                    key,
-                    value,
-                    tags,
-                    content='memories',
-                    tokenize='unicode61 remove_diacritics 2'
-                )
-            """))
-            
-            # Create triggers for automatic synchronization
-            connection.execute(text("""
-                CREATE TRIGGER IF NOT EXISTS memories_fts_insert
-                AFTER INSERT ON memories
-                BEGIN
-                    INSERT INTO memories_fts(id, category, key, value, tags)
-                    VALUES (new.id, new.category, new.key, new.value, new.tags);
-                END
-            """))
-            
-            connection.execute(text("""
-                CREATE TRIGGER IF NOT EXISTS memories_fts_update
-                AFTER UPDATE ON memories
-                BEGIN
-                    UPDATE memories_fts
-                    SET category = new.category,
-                        key = new.key,
-                        value = new.value,
-                        tags = new.tags
-                    WHERE id = new.id;
-                END
-            """))
-            
-            connection.execute(text("""
-                CREATE TRIGGER IF NOT EXISTS memories_fts_delete
-                AFTER DELETE ON memories
-                BEGIN
-                    DELETE FROM memories_fts WHERE id = old.id;
-                END
-            """))
-            
-            connection.commit()
-    except Exception:
-        pass  # FTS5 might not be available in test environment
-
-
 # Create test client
 client = TestClient(app)
 
-# Ensure database is set up at module import time
-setup_test_database()
 
-
-@pytest.fixture(scope="function", autouse=True)
-def setup_test_db():
+@pytest.fixture(scope="function")
+def db_session():
     """Create a fresh database for each test"""
-    setup_test_database()
+    from app.core.database import create_tables
+    
+    Base.metadata.create_all(bind=engine)
+    # Initialize FTS5 tables for testing
+    try:
+        create_tables()
+    except Exception:
+        pass  # FTS5 might not be available in test environment
     yield
-    # Clean up after test
     Base.metadata.drop_all(bind=engine)
 
 
@@ -120,7 +65,7 @@ def sample_memory_data():
 class TestCreateMemory:
     """Tests for POST /api/memories"""
 
-    def test_create_memory_success(self, sample_memory_data):
+    def test_create_memory_success(self, db_session, sample_memory_data):
         """Test successful memory creation"""
         response = client.post("/api/memories", json=sample_memory_data)
 
@@ -136,7 +81,7 @@ class TestCreateMemory:
         assert "updated_at" in data
         assert data["has_embedding"] is False
 
-    def test_create_memory_without_key(self):
+    def test_create_memory_without_key(self, db_session):
         """Test creating memory without key"""
         memory_data = {"category": "test_category", "value": "Memory without key", "tags": ["test"]}
 
@@ -147,7 +92,7 @@ class TestCreateMemory:
         assert data["key"] is None
         assert data["value"] == memory_data["value"]
 
-    def test_create_memory_duplicate_key_updates(self, sample_memory_data):
+    def test_create_memory_duplicate_key_updates(self, db_session, sample_memory_data):
         """Test that duplicate key updates existing memory"""
         # Create first memory
         response1 = client.post("/api/memories", json=sample_memory_data)
@@ -168,7 +113,7 @@ class TestCreateMemory:
         assert data["value"] == "Updated memory value"
         assert data["tags"] == ["updated", "test"]
 
-    def test_create_memory_validation_errors(self):
+    def test_create_memory_validation_errors(self, db_session):
         """Test validation errors"""
         # Empty category
         response = client.post("/api/memories", json={"category": "", "value": "test", "tags": []})
@@ -186,7 +131,7 @@ class TestCreateMemory:
 class TestGetMemory:
     """Tests for GET /api/memories/{key}"""
 
-    def test_get_memory_success(self, sample_memory_data):
+    def test_get_memory_success(self, db_session, sample_memory_data):
         """Test successful memory retrieval"""
         # Create memory first
         create_response = client.post("/api/memories", json=sample_memory_data)
@@ -200,7 +145,7 @@ class TestGetMemory:
         assert data["key"] == sample_memory_data["key"]
         assert data["value"] == sample_memory_data["value"]
 
-    def test_get_memory_with_category_filter(self, sample_memory_data):
+    def test_get_memory_with_category_filter(self, db_session, sample_memory_data):
         """Test getting memory with category filter"""
         # Create memory
         client.post("/api/memories", json=sample_memory_data)
@@ -218,7 +163,7 @@ class TestGetMemory:
         )
         assert response.status_code == 404
 
-    def test_get_memory_not_found(self):
+    def test_get_memory_not_found(self, db_session):
         """Test getting non-existent memory"""
         response = client.get("/api/memories/nonexistent_key")
         assert response.status_code == 404
@@ -228,7 +173,7 @@ class TestGetMemory:
 class TestListMemories:
     """Tests for GET /api/memories"""
 
-    def test_list_memories_empty(self):
+    def test_list_memories_empty(self, db_session):
         """Test listing when no memories exist"""
         response = client.get("/api/memories")
 
@@ -238,7 +183,7 @@ class TestListMemories:
         assert data["total"] == 0
         assert data["category"] is None
 
-    def test_list_memories_with_data(self):
+    def test_list_memories_with_data(self, db_session):
         """Test listing with multiple memories"""
         # Create multiple memories
         for i in range(3):
@@ -257,7 +202,7 @@ class TestListMemories:
         assert len(data["memories"]) == 3
         assert data["total"] == 3
 
-    def test_list_memories_with_category_filter(self):
+    def test_list_memories_with_category_filter(self, db_session):
         """Test listing with category filter"""
         # Create memories in different categories
         for category in ["work", "personal", "work"]:
@@ -276,7 +221,7 @@ class TestListMemories:
         for memory in data["memories"]:
             assert memory["category"] == "work"
 
-    def test_list_memories_pagination(self):
+    def test_list_memories_pagination(self, db_session):
         """Test pagination parameters"""
         # Create 5 memories
         for i in range(5):
@@ -306,7 +251,7 @@ class TestListMemories:
 class TestUpdateMemory:
     """Tests for PUT /api/memories/{key}"""
 
-    def test_update_memory_success(self, sample_memory_data):
+    def test_update_memory_success(self, db_session, sample_memory_data):
         """Test successful memory update"""
         # Create memory
         client.post("/api/memories", json=sample_memory_data)
@@ -322,7 +267,7 @@ class TestUpdateMemory:
         assert data["tags"] == ["updated"]
         assert data["category"] == sample_memory_data["category"]  # Unchanged
 
-    def test_update_memory_not_found(self):
+    def test_update_memory_not_found(self, db_session):
         """Test updating non-existent memory"""
         update_data = {"value": "Updated value"}
 
@@ -333,7 +278,7 @@ class TestUpdateMemory:
 class TestDeleteMemory:
     """Tests for DELETE /api/memories/{key}"""
 
-    def test_delete_memory_success(self, sample_memory_data):
+    def test_delete_memory_success(self, db_session, sample_memory_data):
         """Test successful memory deletion"""
         # Create memory
         create_response = client.post("/api/memories", json=sample_memory_data)
@@ -351,7 +296,7 @@ class TestDeleteMemory:
         get_response = client.get(f"/api/memories/{sample_memory_data['key']}")
         assert get_response.status_code == 404
 
-    def test_delete_memory_not_found(self):
+    def test_delete_memory_not_found(self, db_session):
         """Test deleting non-existent memory"""
         response = client.delete("/api/memories/nonexistent")
         assert response.status_code == 404
@@ -360,7 +305,7 @@ class TestDeleteMemory:
 class TestMemoryStats:
     """Tests for GET /api/memories/stats"""
 
-    def test_stats_empty_database(self):
+    def test_stats_empty_database(self, db_session):
         """Test stats with empty database"""
         response = client.get("/api/memories/stats")
 
@@ -373,7 +318,7 @@ class TestMemoryStats:
         assert data["recent_memories"] == 0
         assert "storage_info" in data
 
-    def test_stats_with_data(self):
+    def test_stats_with_data(self, db_session):
         """Test stats with sample data"""
         # Create memories in different categories
         memories_data = [
@@ -400,7 +345,7 @@ class TestMemoryStats:
 class TestAPIPerformance:
     """Performance tests for API endpoints"""
 
-    def test_response_time_under_100ms(self, sample_memory_data):
+    def test_response_time_under_100ms(self, db_session, sample_memory_data):
         """Test that API responses are under 100ms"""
         import time
 
