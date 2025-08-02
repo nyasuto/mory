@@ -172,8 +172,14 @@ func (s *JSONMemoryStore) List(category string) ([]*Memory, error) {
 	return result, nil
 }
 
-// Search performs search across memories
+// Search performs search across memories using semantic search if available
 func (s *JSONMemoryStore) Search(query SearchQuery) ([]*SearchResult, error) {
+	// Use semantic search if available and enabled
+	if semanticEngine != nil {
+		return semanticEngine.Search(query)
+	}
+
+	// Fall back to keyword search
 	return SearchMemories(s, query)
 }
 
@@ -431,4 +437,102 @@ func (s *JSONMemoryStore) saveMemories(memories []*Memory) error {
 	}
 
 	return nil
+}
+
+// semanticEngine holds the semantic search engine instance
+var semanticEngine SemanticSearchEngine
+
+// SetSemanticEngine sets the semantic search engine for this store
+func (s *JSONMemoryStore) SetSemanticEngine(engine SemanticSearchEngine) {
+	semanticEngine = engine
+}
+
+// GenerateEmbeddings generates embeddings for all memories that don't have them
+func (s *JSONMemoryStore) GenerateEmbeddings() error {
+	if semanticEngine == nil {
+		return fmt.Errorf("semantic engine not initialized")
+	}
+
+	s.mutex.RLock()
+	memories, err := s.loadMemories()
+	s.mutex.RUnlock()
+
+	if err != nil {
+		return fmt.Errorf("failed to load memories: %w", err)
+	}
+
+	log.Printf("[GenerateEmbeddings] Processing %d memories for embedding generation", len(memories))
+
+	var updatedMemories []*Memory
+	generatedCount := 0
+
+	for _, memory := range memories {
+		// Generate embedding if needed
+		if err := semanticEngine.GenerateEmbedding(memory); err != nil {
+			log.Printf("[GenerateEmbeddings] Failed to generate embedding for memory %s: %v", memory.ID, err)
+			continue
+		}
+
+		// Check if embedding was actually generated
+		if len(memory.Embedding) > 0 {
+			generatedCount++
+		}
+
+		updatedMemories = append(updatedMemories, memory)
+	}
+
+	// Save updated memories with embeddings
+	if generatedCount > 0 {
+		s.mutex.Lock()
+		err = s.saveMemories(updatedMemories)
+		s.mutex.Unlock()
+
+		if err != nil {
+			return fmt.Errorf("failed to save memories with embeddings: %w", err)
+		}
+
+		log.Printf("[GenerateEmbeddings] Successfully generated %d embeddings", generatedCount)
+	} else {
+		log.Printf("[GenerateEmbeddings] No new embeddings generated")
+	}
+
+	return nil
+}
+
+// GetSemanticStats returns statistics about semantic search functionality
+func (s *JSONMemoryStore) GetSemanticStats() map[string]interface{} {
+	stats := map[string]interface{}{
+		"semantic_engine_available": semanticEngine != nil,
+	}
+
+	if semanticEngine != nil {
+		engineStats := semanticEngine.GetStats()
+		for k, v := range engineStats {
+			stats[k] = v
+		}
+	}
+
+	// Count memories with embeddings
+	s.mutex.RLock()
+	memories, err := s.loadMemories()
+	s.mutex.RUnlock()
+
+	if err == nil {
+		totalMemories := len(memories)
+		memoriesWithEmbeddings := 0
+
+		for _, memory := range memories {
+			if len(memory.Embedding) > 0 {
+				memoriesWithEmbeddings++
+			}
+		}
+
+		stats["total_memories"] = totalMemories
+		stats["memories_with_embeddings"] = memoriesWithEmbeddings
+		if totalMemories > 0 {
+			stats["embedding_coverage"] = float64(memoriesWithEmbeddings) / float64(totalMemories)
+		}
+	}
+
+	return stats
 }

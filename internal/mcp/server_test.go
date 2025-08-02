@@ -119,6 +119,26 @@ func (m *MockMemoryStore) Search(query memory.SearchQuery) ([]*memory.SearchResu
 	return results, nil
 }
 
+// Semantic search methods for MemoryStore interface
+func (m *MockMemoryStore) SetSemanticEngine(engine memory.SemanticSearchEngine) {
+	// Mock implementation - do nothing
+}
+
+func (m *MockMemoryStore) GenerateEmbeddings() error {
+	// Mock implementation - do nothing
+	return nil
+}
+
+func (m *MockMemoryStore) GetSemanticStats() map[string]interface{} {
+	// Mock implementation - return basic stats
+	return map[string]interface{}{
+		"semantic_engine_available": false,
+		"total_memories":            len(m.memories),
+		"memories_with_embeddings":  0,
+		"embedding_coverage":        0.0,
+	}
+}
+
 // Additional test cases for better coverage
 
 // Helper function to extract text from CallToolResult content

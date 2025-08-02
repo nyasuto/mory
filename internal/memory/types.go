@@ -14,6 +14,10 @@ type Memory struct {
 	Tags      []string  `json:"tags"` // 関連タグ（将来的な検索用）
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// セマンティック検索用フィールド (Phase 3)
+	Embedding     []float32 `json:"embedding,omitempty"`      // OpenAI埋め込みベクトル
+	EmbeddingHash string    `json:"embedding_hash,omitempty"` // キャッシュ無効化用ハッシュ
 }
 
 // OperationLog represents a log entry for memory operations
@@ -38,6 +42,19 @@ type MemoryStore interface {
 	Delete(key string) error
 	DeleteByID(id string) error           // ID削除メソッド追加
 	LogOperation(log *OperationLog) error // 操作ログ記録メソッド追加
+
+	// セマンティック検索機能 (Phase 3)
+	SetSemanticEngine(engine SemanticSearchEngine) // セマンティック検索エンジン設定
+	GenerateEmbeddings() error                     // 全メモリの埋め込み生成
+	GetSemanticStats() map[string]interface{}      // セマンティック検索統計取得
+}
+
+// SemanticSearchEngine defines the interface for semantic search operations
+type SemanticSearchEngine interface {
+	Search(query SearchQuery) ([]*SearchResult, error)
+	GenerateEmbedding(memory *Memory) error
+	RemoveEmbedding(memoryID string) error
+	GetStats() map[string]interface{}
 }
 
 // GenerateID generates a timestamp-based unique ID
