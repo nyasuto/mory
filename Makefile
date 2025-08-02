@@ -17,30 +17,30 @@ help:
 
 # Installation
 install:
-	uv pip install -e .
+	uv sync
 
 install-dev:
-	uv pip install -e ".[dev]"
+	uv sync --extra dev
 
 # Testing
 test:
-	pytest tests-python/ -v
+	uv run pytest tests-python/ -v
 
 test-coverage:
-	pytest tests/ -v --cov=mory --cov-report=html --cov-report=term-missing
+	uv run pytest tests-python/ -v --cov=src/mory --cov-report=html --cov-report=term-missing
 
 # Code quality
 lint:
-	ruff check src tests-python
+	uv run ruff check src tests-python
 
 format:
-	ruff format src tests-python
+	uv run ruff format src tests-python
 
 format-check:
-	ruff format --check src tests-python
+	uv run ruff format --check src tests-python
 
 type-check:
-	mypy src/mory
+	uv run mypy src/mory
 
 # Run all quality checks
 quality: lint format-check
@@ -59,7 +59,7 @@ clean:
 
 # Development
 run:
-	python src/mory/main.py
+	uv run python main.py
 
 # uv-specific commands (advanced)
 uv-sync:
