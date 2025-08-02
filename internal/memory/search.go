@@ -27,6 +27,11 @@ func NewSearchEngine(store MemoryStore) *SearchEngine {
 	return &SearchEngine{store: store}
 }
 
+// GetStore returns the underlying memory store
+func (se *SearchEngine) GetStore() MemoryStore {
+	return se.store
+}
+
 // Search performs a search across memories based on the given query
 func (se *SearchEngine) Search(query SearchQuery) ([]*SearchResult, error) {
 	// Get all memories for the specified category (or all if no category)

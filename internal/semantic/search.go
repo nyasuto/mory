@@ -133,8 +133,15 @@ func (se *SemanticSearchEngine) combineResults(
 	var hybridResults []HybridSearchResult
 	for id := range allIDs {
 		memory := memoryMap[id]
+
+		// If memory not found in keyword results, try to get it from store
 		if memory == nil {
-			continue // Skip if memory not found in keyword results
+			// Get memory from keyword engine's store
+			var err error
+			memory, err = se.keywordEngine.GetStore().GetByID(id)
+			if err != nil {
+				continue // Skip if memory cannot be retrieved
+			}
 		}
 
 		keywordScore := keywordMap[id]
