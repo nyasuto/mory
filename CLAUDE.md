@@ -4,29 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Mory is an MCP server that adds personal memory functionality to Claude Desktop. Phase 2 complete with search and Obsidian integration.
+Mory is a FastAPI-based MCP server that adds personal memory functionality to Claude Desktop. Phase 2 complete with search and Obsidian integration.
 
 **Status**: ✅ Phase 2 Complete - Production ready with all features implemented
 
 ## Development Commands
 
-This is a Go project with Phase 2 implementation complete. All core functionality including search and Obsidian integration is working and tested.
+This is a Python project using FastAPI and SQLite. All core functionality including search and Obsidian integration is working and tested.
 
 ### Available Build Commands
 ```bash
 # Install dependencies
-go mod download
+uv sync
 
-# Build the project
-make build
-
-# Run in development mode
+# Run development server
 make run
 
 # Code quality
-make fmt    # Format code
-make lint   # Run linter
-make test   # Run tests
+make fmt    # Format code with ruff
+make lint   # Run linter with ruff
+make test   # Run tests with pytest
 
 # Additional commands
 make quality      # Run all quality checks (fmt, lint, test)
@@ -39,16 +36,19 @@ make clean        # Clean build artifacts
 ### Project Structure
 ```
 mory/
-├── cmd/mory/                  # Application entry point
-├── internal/
-│   ├── memory/                # Core memory storage and search
-│   ├── mcp/                   # MCP server implementation
-│   ├── obsidian/              # Obsidian integration (Phase 2)
-│   └── config/                # Configuration management
-├── data/                      # Local data storage (git-ignored)
-├── QUICKSTART.md              # Complete setup guide
-├── API.md                     # Technical documentation
-└── README.md                  # Project overview
+├── app/                       # FastAPI application source
+│   ├── main.py               # Application entry point
+│   ├── api/                  # API route handlers
+│   ├── core/                 # Core functionality (config, database)
+│   ├── models/               # SQLAlchemy models and schemas
+│   ├── services/             # Business logic (search, etc.)
+│   └── mcp_server.py         # MCP server implementation
+├── tests/                    # Test suite
+├── scripts/                  # Deployment and migration scripts
+├── data/                     # Local data storage (git-ignored)
+├── mcp_main.py              # MCP server entry point
+├── pyproject.toml           # Python dependencies and config
+└── README.md                # Project overview
 ```
 
 ### Core Types
@@ -85,9 +85,9 @@ See [API.md](./docs/API.md) for detailed tool specifications and parameters.
 ## Development Notes
 
 ### Technical Highlights
-- **Go 1.21+**: Standard Go project layout and conventions
-- **Concurrent-Safe**: Thread-safe operations with proper locking
-- **Well-Tested**: 95%+ test coverage with comprehensive test suites
+- **Python 3.11+**: Modern Python with FastAPI and SQLAlchemy
+- **SQLite + FTS5**: High-performance full-text search capabilities
+- **Well-Tested**: 95%+ test coverage with pytest
 - **Production Ready**: Stable, documented, ready for Claude Desktop
 
 ### Usage Examples

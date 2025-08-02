@@ -1,17 +1,24 @@
-# Binaries
-/bin/
-/mory
-*.exe
-
-/.serena
-
-# Go build artifacts
-*.o
-*.a
+# Python-specific ignores
+__pycache__/
+*.py[cod]
+*$py.class
 *.so
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Serena cache
+/.serena
 
 # Data files (local storage - actual user data)
 /data/
+/mory-server/data/
 data/memories.json
 data/operations.log
 
@@ -25,28 +32,27 @@ data/operations.log
 .DS_Store
 Thumbs.db
 
-# Logs (actual runtime logs, not test logs)
-operations.log
+# Logs
 *.log
-
-# Config files (actual runtime config with sensitive data)
-config.json
-
-# Test coverage files
-coverage*.out
-coverage*.html
-
-# Go module cache
-go.sum.tmp
-
-# Temporary files
-*.tmp
-.tmp/
 
 # Local development files
 .env
 .env.local
 
-# Build artifacts
-dist/
-.env
+# Test coverage files
+.coverage
+htmlcov/
+coverage.xml
+
+# pytest cache
+.pytest_cache/
+
+# mypy cache
+.mypy_cache/
+
+# ruff cache
+.ruff_cache/
+
+# Temporary files
+*.tmp
+.tmp/
