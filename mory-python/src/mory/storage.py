@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Optional
+# No additional typing imports needed for Python 3.11+
 
 import aiofiles
 
@@ -141,7 +141,7 @@ class JSONMemoryStore:
             raise MemoryNotFoundError(id)
         return self._memories[id]
 
-    async def list(self, category: Optional[str] = None) -> list[Memory]:
+    async def list(self, category: str | None = None) -> list[Memory]:
         """List memories, optionally filtered by category."""
         memories = list(self._memories.values())
 

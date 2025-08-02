@@ -1,7 +1,7 @@
 """MCP server implementation for Mory."""
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
@@ -15,7 +15,7 @@ from .storage import JSONMemoryStore
 class MoryServer:
     """Mory MCP Server implementation."""
 
-    def __init__(self, data_dir: Optional[str] = None) -> None:
+    def __init__(self, data_dir: str | None = None) -> None:
         """Initialize the Mory server.
 
         Args:
@@ -151,7 +151,7 @@ class MoryServer:
                 return [{"type": "text", "text": f"Error: {str(e)}"}]
 
     async def _save_memory(
-        self, category: str, value: str, key: str = "", tags: Optional[list[str]] = None
+        self, category: str, value: str, key: str = "", tags: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Save a memory."""
         memory = Memory(category=category, key=key, value=value, tags=tags or [])
@@ -176,7 +176,7 @@ class MoryServer:
         return [{"type": "text", "text": memory_info}]
 
     async def _list_memories(
-        self, category: Optional[str] = None
+        self, category: str | None = None
     ) -> list[dict[str, Any]]:
         """List memories."""
         memories = await self.store.list(category)
@@ -204,7 +204,7 @@ class MoryServer:
     async def _search_memories(
         self,
         query: str,
-        category: Optional[str] = None,
+        category: str | None = None,
         limit: int = 20,
         min_score: float = 0.0,
     ) -> list[dict[str, Any]]:

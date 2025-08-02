@@ -1,7 +1,7 @@
 """Memory data models and storage interface."""
 
 from datetime import datetime
-from typing import Optional, Protocol
+from typing import Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -23,7 +23,7 @@ class Memory(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now)
 
     # Semantic search fields (will be added in Phase 2)
-    embedding: Optional[list[float]] = Field(
+    embedding: list[float] | None = Field(
         default=None, description="Semantic embedding vector"
     )
 
@@ -53,7 +53,7 @@ class SearchQuery(BaseModel):
     """Search query parameters."""
 
     query: str = Field(..., description="Search query string")
-    category: Optional[str] = Field(
+    category: str | None = Field(
         default=None, description="Optional category filter"
     )
     limit: int = Field(
@@ -70,15 +70,15 @@ class OperationLog(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     operation_id: str = Field(default_factory=lambda: f"op_{uuid4().hex[:8]}")
     operation: str = Field(..., description="Operation type (save, get, delete, etc.)")
-    key: Optional[str] = Field(default=None, description="Memory key if applicable")
-    before: Optional[Memory] = Field(
+    key: str | None = Field(default=None, description="Memory key if applicable")
+    before: Memory | None = Field(
         default=None, description="Memory state before operation"
     )
-    after: Optional[Memory] = Field(
+    after: Memory | None = Field(
         default=None, description="Memory state after operation"
     )
     success: bool = Field(default=True, description="Whether operation succeeded")
-    error: Optional[str] = Field(
+    error: str | None = Field(
         default=None, description="Error message if operation failed"
     )
 
@@ -111,7 +111,7 @@ class MemoryStore(Protocol):
         """Get a memory by ID."""
         ...
 
-    async def list(self, category: Optional[str] = None) -> list[Memory]:
+    async def list(self, category: str | None = None) -> list[Memory]:
         """List memories, optionally filtered by category."""
         ...
 
