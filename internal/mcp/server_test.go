@@ -736,3 +736,176 @@ func TestHandleSaveMemory_InvalidArguments(t *testing.T) {
 		t.Error("Expected error result")
 	}
 }
+
+func TestHandleSearchMemories_Success(t *testing.T) {
+	cfg := config.DefaultConfig()
+	store := NewMockMemoryStore()
+	server := NewServer(cfg, store)
+
+	// Add some test data
+	testMemory := &memory.Memory{
+		ID:       "test-id",
+		Key:      "test-key",
+		Value:    "test value for searching",
+		Category: "test-category",
+		Tags:     []string{"search", "test"},
+	}
+	_, err := store.Save(testMemory)
+	if err != nil {
+		t.Fatalf("Failed to save test memory: %v", err)
+	}
+
+	arguments := map[string]interface{}{
+		"query":    "test",
+		"category": "test-category",
+	}
+
+	result, err := server.handleSearchMemories(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if result.IsError {
+		t.Error("Expected success result")
+	}
+
+	text := getTextFromResult(result)
+	if text == "" {
+		t.Error("Expected non-empty text content")
+	}
+}
+
+func TestHandleSearchMemories_MissingQuery(t *testing.T) {
+	cfg := config.DefaultConfig()
+	store := NewMockMemoryStore()
+	server := NewServer(cfg, store)
+
+	arguments := map[string]interface{}{
+		"category": "test-category",
+		// Missing "query" field
+	}
+
+	result, err := server.handleSearchMemories(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if !result.IsError {
+		t.Error("Expected error result for missing query")
+	}
+}
+
+func TestHandleSearchMemories_EmptyQuery(t *testing.T) {
+	cfg := config.DefaultConfig()
+	store := NewMockMemoryStore()
+	server := NewServer(cfg, store)
+
+	arguments := map[string]interface{}{
+		"query": "",
+	}
+
+	result, err := server.handleSearchMemories(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if !result.IsError {
+		t.Error("Expected error result for empty query")
+	}
+}
+
+func TestHandleGenerateEmbeddings_SemanticNotEnabled(t *testing.T) {
+	cfg := config.DefaultConfig()
+	store := NewMockMemoryStore()
+	server := NewServer(cfg, store)
+
+	arguments := map[string]interface{}{}
+
+	result, err := server.handleGenerateEmbeddings(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if !result.IsError {
+		t.Error("Expected error result when semantic search is not enabled")
+	}
+
+	text := getTextFromResult(result)
+	if !strings.Contains(text, "Semantic search is not enabled") {
+		t.Errorf("Expected semantic search disabled message, got: %s", text)
+	}
+}
+
+func TestRegisterObsidianTools(t *testing.T) {
+	cfg := config.DefaultConfig()
+	// Initialize Obsidian config since DefaultConfig() doesn't include it
+	cfg.Obsidian = &config.ObsidianConfig{
+		VaultPath: "/test/vault",
+	}
+	store := NewMockMemoryStore()
+	server := NewServer(cfg, store)
+
+	// This tests that the server structure is created properly for Obsidian features
+	// We can't easily test the actual registration without access to the MCP server instance
+	if server == nil {
+		t.Fatal("Expected server to be created")
+	}
+
+	if server.config.Obsidian == nil {
+		t.Error("Expected Obsidian config to be set")
+	} else if server.config.Obsidian.VaultPath != "/test/vault" {
+		t.Errorf("Expected vault path to be set to /test/vault, got %s", server.config.Obsidian.VaultPath)
+	}
+
+	t.Log("Server created successfully with Obsidian configuration")
+}
+
+func TestHandleObsidianImport_NoVaultPath(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Obsidian = &config.ObsidianConfig{
+		VaultPath: "", // No vault path set
+	}
+	store := NewMockMemoryStore()
+	server := NewServer(cfg, store)
+
+	arguments := map[string]interface{}{}
+
+	result, err := server.handleObsidianImport(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if !result.IsError {
+		t.Error("Expected error result for missing vault path")
+	}
+}
+
+func TestHandleGenerateObsidianNote_Success(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Obsidian = &config.ObsidianConfig{
+		VaultPath: "", // No vault path is OK for note generation
+	}
+	store := NewMockMemoryStore()
+	server := NewServer(cfg, store)
+
+	arguments := map[string]interface{}{
+		"title":    "Test Note",
+		"template": "daily",
+		"category": "test",
+	}
+
+	result, err := server.handleGenerateObsidianNote(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if result.IsError {
+		text := getTextFromResult(result)
+		t.Errorf("Expected success result, got error: %s", text)
+	}
+
+	text := getTextFromResult(result)
+	if text == "" {
+		t.Error("Expected non-empty text content")
+	}
+}
