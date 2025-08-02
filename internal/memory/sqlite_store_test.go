@@ -386,13 +386,17 @@ func TestSQLiteMemoryStore_ConcurrentAccess(t *testing.T) {
 func TestSQLiteMemoryStore_FTS5Support(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test_fts5.db")
-	
+
 	store, err := NewSQLiteMemoryStore(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create SQLite store: %v", err)
 	}
-	defer store.Close()
-	
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Logf("Warning: failed to close store: %v", err)
+		}
+	}()
+
 	// Add test memories with Japanese content
 	memories := []*Memory{
 		{
@@ -403,7 +407,7 @@ func TestSQLiteMemoryStore_FTS5Support(t *testing.T) {
 			Tags:     []string{"動物", "ペット"},
 		},
 		{
-			ID:       "test-cat-1", 
+			ID:       "test-cat-1",
 			Category: "pet",
 			Key:      "my_cat",
 			Value:    "猫も飼っています。とても優雅な動物です。",
@@ -417,7 +421,7 @@ func TestSQLiteMemoryStore_FTS5Support(t *testing.T) {
 			Tags:     []string{"動物", "自然"},
 		},
 	}
-	
+
 	// Save memories
 	for _, mem := range memories {
 		_, err := store.Save(mem)
@@ -425,7 +429,7 @@ func TestSQLiteMemoryStore_FTS5Support(t *testing.T) {
 			t.Fatalf("Failed to save memory %s: %v", mem.ID, err)
 		}
 	}
-	
+
 	// Test Japanese FTS5 search
 	testCases := []struct {
 		name          string
@@ -458,29 +462,29 @@ func TestSQLiteMemoryStore_FTS5Support(t *testing.T) {
 			shouldContain: []string{"test-dog-1"},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			searchQuery := SearchQuery{
 				Query:    tc.query,
 				Category: "",
 			}
-			
+
 			results, err := store.Search(searchQuery)
 			if err != nil {
 				t.Fatalf("Search failed: %v", err)
 			}
-			
+
 			if len(results) != tc.expectedCount {
 				t.Errorf("Expected %d results, got %d", tc.expectedCount, len(results))
 			}
-			
+
 			// Check that expected memories are included
 			resultIDs := make(map[string]bool)
 			for _, result := range results {
 				resultIDs[result.Memory.ID] = true
 			}
-			
+
 			for _, expectedID := range tc.shouldContain {
 				if !resultIDs[expectedID] {
 					t.Errorf("Expected result %s not found in search results", expectedID)
@@ -495,16 +499,20 @@ func TestSQLiteMemoryStore_FTS5Performance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance test in short mode")
 	}
-	
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test_fts5_perf.db")
-	
+
 	store, err := NewSQLiteMemoryStore(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create SQLite store: %v", err)
 	}
-	defer store.Close()
-	
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Logf("Warning: failed to close store: %v", err)
+		}
+	}()
+
 	// Create a larger dataset
 	numMemories := 1000
 	for i := 0; i < numMemories; i++ {
@@ -515,34 +523,34 @@ func TestSQLiteMemoryStore_FTS5Performance(t *testing.T) {
 			Value:    fmt.Sprintf("テストデータ %d: これは性能テスト用のデータです。検索機能をテストしています。", i),
 			Tags:     []string{"テスト", "性能"},
 		}
-		
+
 		// Add some variety
 		if i%10 == 0 {
 			memory.Value += " 特別なキーワード"
 			memory.Tags = append(memory.Tags, "特別")
 		}
-		
+
 		_, err := store.Save(memory)
 		if err != nil {
 			t.Fatalf("Failed to save memory %d: %v", i, err)
 		}
 	}
-	
+
 	// Measure search performance
 	start := time.Now()
-	
+
 	searchQuery := SearchQuery{
 		Query:    "特別",
 		Category: "",
 	}
-	
+
 	results, err := store.Search(searchQuery)
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
 	}
-	
+
 	duration := time.Since(start)
-	
+
 	// Verify results (FTS5 has LIMIT 50, so expect min(100, 50) = 50)
 	expectedResults := numMemories / 10 // Every 10th item has "特別" = 100
 	maxResults := 50                    // FTS5 query has LIMIT 50
@@ -552,11 +560,11 @@ func TestSQLiteMemoryStore_FTS5Performance(t *testing.T) {
 	if len(results) != expectedResults {
 		t.Errorf("Expected %d results, got %d", expectedResults, len(results))
 	}
-	
+
 	// Performance assertion (should be fast with FTS5)
 	if duration > time.Second {
 		t.Errorf("Search took too long: %v (expected < 1s)", duration)
 	}
-	
+
 	t.Logf("FTS5 search of %d records took %v", numMemories, duration)
 }
