@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  mory-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      # Live reload for development
+      - ./app:/app/app
+      - ./data:/app/data
+      # Optional: Mount Obsidian vault for testing
+      - ${HOME}/Documents/Obsidian:/obsidian:ro
+    environment:
+      - MORY_DEBUG=true
+      - MORY_HOST=0.0.0.0
+      - MORY_PORT=8080
+      - MORY_DATA_DIR=/app/data
+      - MORY_OBSIDIAN_VAULT_PATH=/obsidian
+      # Load from .env file or environment
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MORY_SEMANTIC_SEARCH_ENABLED=${MORY_SEMANTIC_SEARCH_ENABLED:-true}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Development database browser
+  sqlite-web:
+    image: coleifer/sqlite-web
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data:/data
+    command: ["sqlite_web", "/data/memories.db", "--host", "0.0.0.0", "--port", "8080"]
+    depends_on:
+      - mory-server
+    profiles:
+      - debug
