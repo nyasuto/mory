@@ -7,7 +7,7 @@ on:
     branches: [ main, develop ]
 
 env:
-  GO_VERSION: '1.23'
+  GO_VERSION: '1.24.4'
 
 jobs:
   test:
@@ -29,9 +29,9 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go--${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+          ${{ runner.os }}-go-
           
     - name: Download dependencies
       run: go mod download
@@ -69,9 +69,9 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go--${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+          ${{ runner.os }}-go-
           
     - name: Download dependencies
       run: go mod download
@@ -110,9 +110,9 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+          ${{ runner.os }}-go-
           
     - name: Download dependencies
       run: go mod download
