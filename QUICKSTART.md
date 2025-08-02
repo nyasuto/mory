@@ -296,8 +296,8 @@ tail ~/.mory/operations.log
 ## 🔗 追加リソース
 
 - **技術文書**: [API.md](./API.md)
-- **貢献ガイド**: [CONTRIBUTING.md](../CONTRIBUTING.md)
-- **プロジェクトホームページ**: [README.md](../README.md)
+- **貢献ガイド**: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- **プロジェクトホームページ**: [README.md](./README.md)
 - **課題トラッカー**: [GitHub Issues](https://github.com/nyasuto/mory/issues)
 
 ---
