@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.health import router as health_router
+from .api.memories import router as memories_router
 from .core.config import settings
 from .core.database import create_tables
 
@@ -29,6 +30,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health_router, prefix="/api", tags=["health"])
+app.include_router(memories_router, prefix="/api", tags=["memories"])
 
 
 @app.on_event("startup")
