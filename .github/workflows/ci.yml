@@ -7,8 +7,7 @@ on:
     branches: [ main, develop ]
 
 env:
-  PYTHON_VERSION: '3.11'
-  UV_CACHE_DIR: /tmp/.uv-cache
+  GO_VERSION: '1.23'
 
 jobs:
   test:
@@ -19,144 +18,152 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+    - name: Set up Go
+      uses: actions/setup-go@v5
       with:
-        enable-cache: true
+        go-version: ${{ env.GO_VERSION }}
         
-    - name: Set up Python
-      run: uv python install ${{ env.PYTHON_VERSION }}
-        
-    - name: Cache uv dependencies
+    - name: Cache Go modules
       uses: actions/cache@v4
       with:
-        path: ${{ env.UV_CACHE_DIR }}
-        key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-uv-
+          ${{ runner.os }}-go-
           
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev
-        uv pip install pytest-cov
-        
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify dependencies
+      run: go mod verify
+      
     - name: Run tests
-      run: |
-        uv run pytest tests-python/ -v
-        
+      run: make test
+      
     - name: Run tests with coverage
-      run: |
-        uv run pytest tests-python/ -v --cov=src/mory --cov-report=xml --cov-report=term-missing
-        
+      run: make test-coverage
+      
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.xml
 
   lint:
-    name: Lint & Format
+    name: Lint
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+    - name: Set up Go
+      uses: actions/setup-go@v5
       with:
-        enable-cache: true
+        go-version: ${{ env.GO_VERSION }}
         
-    - name: Set up Python
-      run: uv python install ${{ env.PYTHON_VERSION }}
-        
-    - name: Cache uv dependencies
+    - name: Cache Go modules
       uses: actions/cache@v4
       with:
-        path: ${{ env.UV_CACHE_DIR }}
-        key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-uv-
+          ${{ runner.os }}-go-
           
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev --no-install-project
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: latest
+        args: --timeout=5m
         
-    - name: Run ruff linter
+    - name: Format check
       run: |
-        uv run ruff check src tests-python
-        
-    - name: Run ruff formatter check
-      run: |
-        uv run ruff format --check src tests-python
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
 
-  quality:
-    name: Quality Check
+  build:
+    name: Build
     runs-on: ubuntu-latest
     needs: [test, lint]
     
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
-      with:
-        enable-cache: true
-        
-    - name: Set up Python
-      run: uv python install ${{ env.PYTHON_VERSION }}
-        
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.UV_CACHE_DIR }}
-        key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-
-          
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev
-        
-    - name: Run quality checks
-      run: |
-        make quality
-        
-    - name: Test package installation
-      run: |
-        uv run python -c "import src.mory; print('✓ Package import successful')"
-        
-    - name: Test main entry point
-      run: |
-        timeout 10s uv run python main.py || echo "✓ Main entry point working (timeout expected)"
-
-  build:
-    name: Build & Package
-    runs-on: ubuntu-latest
-    needs: [quality]
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+    - name: Set up Go
+      uses: actions/setup-go@v5
       with:
-        enable-cache: true
+        go-version: ${{ env.GO_VERSION }}
         
-    - name: Set up Python
-      run: uv python install ${{ env.PYTHON_VERSION }}
-        
-    - name: Build Python package
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Build MCP server binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
       run: |
-        uv build
+        mkdir -p bin
+        BINARY_NAME="mory"
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          BINARY_NAME="mory.exe"
+        fi
+        CGO_ENABLED=0 go build -ldflags "-w -s" -o bin/${BINARY_NAME} ./cmd/mory
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: mory-python-package
-        path: |
-          dist/*.whl
-          dist/*.tar.gz
+        name: mory-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: bin/
         retention-days: 7
+
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs: [test, lint, build]
+    if: always()
+    
+    steps:
+    - name: Check all jobs status
+      run: |
+        echo "=== CI Pipeline Status ==="
+        echo "Test job: ${{ needs.test.result }}"
+        echo "Lint job: ${{ needs.lint.result }}"
+        echo "Build job: ${{ needs.build.result }}"
+        echo "=========================="
+        
+        if [[ "${{ needs.test.result }}" == "success" && "${{ needs.lint.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
+          echo "✅ All CI jobs completed successfully!"
+          exit 0
+        else
+          echo "❌ Some CI jobs failed or were cancelled"
+          exit 1
+        fi
+

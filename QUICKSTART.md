@@ -1,27 +1,18 @@
-# 🦔 Mory Python版完全セットアップガイド
+# 🦔 Mory 完全セットアップガイド
 
-このガイドでは、Claude DesktopでMory Python実装のセットアップと使用方法を詳しく説明します。
+このガイドでは、Claude DesktopでMoryのすべての機能をセットアップして使用する方法を詳しく説明します。
 
 ## 🚀 クイックセットアップ（5分）
 
-### 1. Python環境のセットアップ
+### 1. プロジェクトのビルド
 ```bash
-# プロジェクトのクローン
+# クローンとビルド
 git clone https://github.com/nyasuto/mory.git
 cd mory
+make build
 
-# Python仮想環境の作成
-python3 -m venv venv
-
-# 仮想環境の有効化
-source venv/bin/activate        # Linux/macOS
-# venv\Scripts\activate         # Windows
-
-# 依存関係のインストール
-pip install -e .
-
-# 動作確認
-python main.py --help
+# ビルドの確認
+./bin/mory --version
 ```
 
 ### 2. Claude Desktopの設定
@@ -35,17 +26,13 @@ Claude Desktop設定ファイルを編集します：
 {
   "mcpServers": {
     "mory": {
-      "command": "python",
-      "args": ["/full/path/to/mory/main.py"],
-      "env": {
-        "PYTHONPATH": "/full/path/to/mory/src"
-      }
+      "command": "/full/path/to/mory/bin/mory"
     }
   }
 }
 ```
 
-> **重要**: `/full/path/to/mory/main.py` と `/full/path/to/mory/src` を実際の絶対パスに置き換えてください
+> **重要**: `/full/path/to/mory/bin/mory` を実際の絶対パスに置き換えてください
 
 ### 3. Claude Desktopの再起動
 
@@ -67,9 +54,9 @@ Claude: [list_memories ツール実行] はい、以下の情報を記憶して�
 
 これが動作すれば、基本セットアップは完了です！🎉
 
-## 🔍 Python版の主要機能
+## 🔍 高度な機能のセットアップ
 
-### 検索機能
+### 検索機能（Phase 2）
 
 検索機能は基本セットアップ後すぐに使用できます：
 
@@ -78,30 +65,32 @@ Claude: [list_memories ツール実行] はい、以下の情報を記憶して�
 Claude: [search_memories ツール実行] 関連度スコア付きでプログラミング関連の記憶を発見
 ```
 
-**検索機能の特徴:**
-- ✅ 全文検索（値、カテゴリ、タグを対象）
-- ✅ 関連度スコアリング（0.0 - 1.0）
-- ✅ カテゴリフィルタリング
-- ✅ 結果の自動ソート
+### Obsidian連携（Phase 2）
 
-### 現在利用可能なツール
+Obsidian機能を使用するには、追加の設定が必要です：
 
-1. **save_memory**: 情報の保存
-2. **get_memory**: ID/キーによる取得
-3. **list_memories**: 一覧表示（カテゴリフィルタ可）
-4. **search_memories**: 高度な検索
-5. **delete_memory**: メモリの削除
-
-### 将来の機能（開発予定）
-
-- 🚧 **Obsidian連携**: ノートインポート/エクスポート
-- 🚧 **セマンティック検索**: sentence-transformersによる意味検索
-- 🚧 **AI自動分類**: 自動カテゴリ化・タグ付け
-
-#### 削除機能のテスト
+#### オプション1: 環境変数
+```bash
+export MORY_OBSIDIAN_VAULT_PATH="/path/to/your/obsidian/vault"
 ```
-あなた: "古いメモ"という記憶を削除して
-Claude: [delete_memory ツール実行] 指定されたメモリを正常に削除しました
+
+#### オプション2: 設定ファイル
+`~/.mory/config.json` を作成：
+```json
+{
+  "obsidian": {
+    "vault_path": "/path/to/your/obsidian/vault"
+  }
+}
+```
+
+#### Obsidian連携のテスト
+```
+あなた: Obsidianボルトから学習ノートをインポートして
+Claude: [obsidian_import ツール実行] ボルトからX個のノートを正常にインポートしました
+
+あなた: 今日の学習内容から振り返りノートを作成して
+Claude: [generate_obsidian_note ツール実行] 日次振り返りノートを生成しました
 ```
 
 ## 📖 完全機能ガイド
@@ -296,8 +285,8 @@ tail ~/.mory/operations.log
 ## 🔗 追加リソース
 
 - **技術文書**: [API.md](./API.md)
-- **貢献ガイド**: [CONTRIBUTING.md](../CONTRIBUTING.md)
-- **プロジェクトホームページ**: [README.md](../README.md)
+- **貢献ガイド**: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- **プロジェクトホームページ**: [README.md](./README.md)
 - **課題トラッカー**: [GitHub Issues](https://github.com/nyasuto/mory/issues)
 
 ---

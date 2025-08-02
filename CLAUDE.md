@@ -4,31 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Mory is an MCP server that adds personal memory functionality to Claude Desktop. Now powered by Python implementation.
+Mory is an MCP server that adds personal memory functionality to Claude Desktop. Phase 2 complete with search and Obsidian integration.
 
-**Status**: ✅ Python Implementation Complete - Core features implemented and ready for use
+**Status**: ✅ Phase 2 Complete - Production ready with all features implemented
 
 ## Development Commands
 
-This is a Python project with core MCP functionality implemented. Memory management and search features are working and tested.
+This is a Go project with Phase 2 implementation complete. All core functionality including search and Obsidian integration is working and tested.
 
 ### Available Build Commands
 ```bash
 # Install dependencies
-pip install -e .
+go mod download
+
+# Build the project
+make build
 
 # Run in development mode
-python main.py
+make run
 
 # Code quality
-make fmt        # Format code with ruff
-make lint       # Run linter with ruff
-make test       # Run tests with pytest
+make fmt    # Format code
+make lint   # Run linter
+make test   # Run tests
 
 # Additional commands
-make quality    # Run all quality checks (fmt, lint, test)
-make install    # Install in development mode
-make clean      # Clean build artifacts
+make quality      # Run all quality checks (fmt, lint, test)
+make test-coverage # Generate test coverage report
+make clean        # Clean build artifacts
 ```
 
 ## Architecture & Structure
@@ -36,16 +39,13 @@ make clean      # Clean build artifacts
 ### Project Structure
 ```
 mory/
-├── src/mory/                  # Main Python package
-│   ├── __init__.py
-│   ├── main.py                # Application entry point
-│   ├── server.py              # MCP server implementation
-│   ├── memory.py              # Memory models and types
-│   └── storage.py             # JSON storage implementation
-├── tests-python/             # Test suite
+├── cmd/mory/                  # Application entry point
+├── internal/
+│   ├── memory/                # Core memory storage and search
+│   ├── mcp/                   # MCP server implementation
+│   ├── obsidian/              # Obsidian integration (Phase 2)
+│   └── config/                # Configuration management
 ├── data/                      # Local data storage (git-ignored)
-├── main.py                    # Root entry point
-├── pyproject.toml             # Python project configuration
 ├── QUICKSTART.md              # Complete setup guide
 ├── API.md                     # Technical documentation
 └── README.md                  # Project overview
@@ -54,13 +54,14 @@ mory/
 ### Core Types
 See [API.md](./API.md) for complete data model specifications.
 
-### MCP Tools (5 tools implemented)
+### MCP Tools (6 tools implemented)
 
 1. **save_memory** - Store information with categories and tags
 2. **get_memory** - Retrieve memories by key or ID  
 3. **list_memories** - List all memories with optional filtering
-4. **search_memories** - Full-text search with relevance scoring
-5. **delete_memory** - Delete memories by key or ID
+4. **search_memories** - Advanced full-text search with scoring
+5. **obsidian_import** - Import Obsidian vault notes
+6. **generate_obsidian_note** - Generate notes from memories using templates
 
 See [API.md](./API.md) for detailed tool specifications and parameters.
 
@@ -68,31 +69,26 @@ See [API.md](./API.md) for detailed tool specifications and parameters.
 
 **Claude Desktop**: See [QUICKSTART.md](./QUICKSTART.md) for complete setup instructions.
 
-**Data Directory**: Set `MORY_DATA_DIR` environment variable or use default 'data' directory.
+**Obsidian Integration**: Set `MORY_OBSIDIAN_VAULT_PATH` environment variable or create config file.
 
 ## Current Status
 
-✅ **Python Implementation Complete**: Core features implemented and production-ready
+✅ **Phase 2 Complete**: All features implemented, tested, and production-ready
 - Core memory management with JSON storage
-- Full-text search with relevance scoring  
-- Async/await support for MCP protocol
-- Type hints and Pydantic models
-- Basic test coverage
+- Advanced search with relevance scoring  
+- Obsidian integration (import/export/templates)
+- Comprehensive test suite (95%+ coverage)
+- Complete documentation
 
-📋 **Future Enhancements**: Obsidian integration, semantic search, advanced templates
+📋 **Phase 3 Planned**: Semantic search, AI categorization, smart recommendations
 
 ## Development Notes
 
 ### Technical Highlights
-- **Python 3.11+**: Modern Python with type hints and async support
-- **Pydantic Models**: Type-safe data validation and serialization
-- **Async/Await**: Non-blocking I/O for MCP server operations
-- **JSON Storage**: Human-readable file-based data persistence
-
-### Project Policies
-- **Type Checking**: Minimal type checking policy for personal project - focus on runtime functionality over strict typing
-- **Code Quality**: Prioritize linting and formatting (ruff) over exhaustive type validation (mypy)
-- **Testing**: Focus on integration testing and real-world usage over comprehensive unit test coverage
+- **Go 1.21+**: Standard Go project layout and conventions
+- **Concurrent-Safe**: Thread-safe operations with proper locking
+- **Well-Tested**: 95%+ test coverage with comprehensive test suites
+- **Production Ready**: Stable, documented, ready for Claude Desktop
 
 ### Usage Examples
 See [QUICKSTART.md](./QUICKSTART.md) for complete usage examples and setup instructions.
@@ -103,9 +99,3 @@ See [API.md](./API.md) for detailed technical specifications.
 - Prefer editing existing files over creating new ones  
 - Only create documentation when explicitly requested
 - **Japanese Localization**: All documentation (README.md, QUICKSTART.md, API.md) has been rewritten in Japanese for better accessibility to Japanese users. Maintain this localization in future updates.
-
-# important-instruction-reminders
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
