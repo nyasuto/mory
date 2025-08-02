@@ -1,5 +1,7 @@
 """JSON-based storage implementation for memories."""
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 # No additional typing imports needed for Python 3.11+
