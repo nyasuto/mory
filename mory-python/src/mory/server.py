@@ -175,9 +175,11 @@ class MoryServer:
 
         return [{"type": "text", "text": memory_info}]
 
-    async def _list_memories(self, category: str | None = None) -> list[dict[str, Any]]:
+    async def _list_memories(
+        self, category: str | None = None
+    ) -> list[dict[str, Any]]:
         """List memories."""
-        memories = await self.store.list_memories(category)
+        memories = await self.store.list(category)
 
         if not memories:
             return [{"type": "text", "text": "記憶がありません。"}]
@@ -256,6 +258,8 @@ class MoryServer:
                 InitializationOptions(
                     server_name="mory-python",
                     server_version="0.1.0",
-                    capabilities=self.server.get_capabilities(),
+                    capabilities=self.server.get_capabilities(
+                        notification_options=None, experimental_capabilities={}
+                    ),
                 ),
             )

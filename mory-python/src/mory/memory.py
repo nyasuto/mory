@@ -1,7 +1,5 @@
 """Memory data models and storage interface."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Protocol
 from uuid import uuid4
@@ -55,7 +53,9 @@ class SearchQuery(BaseModel):
     """Search query parameters."""
 
     query: str = Field(..., description="Search query string")
-    category: str | None = Field(default=None, description="Optional category filter")
+    category: str | None = Field(
+        default=None, description="Optional category filter"
+    )
     limit: int = Field(
         default=20, ge=1, le=100, description="Maximum number of results"
     )
@@ -111,7 +111,7 @@ class MemoryStore(Protocol):
         """Get a memory by ID."""
         ...
 
-    async def list_memories(self, category: str | None = None) -> list[Memory]:
+    async def list(self, category: str | None = None) -> list[Memory]:
         """List memories, optionally filtered by category."""
         ...
 
