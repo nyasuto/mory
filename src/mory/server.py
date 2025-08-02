@@ -5,8 +5,10 @@ from typing import Any
 
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
+
+# Removed incorrect imports - using default capabilities
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool
+from mcp.types import ServerCapabilities, Tool, ToolsCapability
 
 from .memory import Memory, SearchQuery
 from .storage import JSONMemoryStore
@@ -248,14 +250,25 @@ class MoryServer:
         # Load existing data
         await self.store.load()
 
-        # Start the server
+        # Start the server with proper capabilities
         async with stdio_server() as (read_stream, write_stream):
+            # Define capabilities following MCP best practices
+            capabilities = ServerCapabilities(
+                tools=ToolsCapability(
+                    listChanged=False  # Set to True if tool list can change dynamically
+                ),
+                # Add other capabilities as needed:
+                # resources=ResourcesCapability(listChanged=False),
+                # prompts=PromptsCapability(listChanged=False),
+                # logging=LoggingCapability(),
+            )
+
             await self.server.run(
                 read_stream,
                 write_stream,
                 InitializationOptions(
                     server_name="mory-python",
                     server_version="0.1.0",
-                    capabilities=self.server.get_capabilities(),
+                    capabilities=capabilities,
                 ),
             )
