@@ -3,14 +3,19 @@
 
 version: 2
 updates:
-  # Go module dependencies
-  - package-ecosystem: "gomod"
+  # Python pip dependencies
+  - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
       timezone: "Asia/Tokyo"
+    # Group minor and patch updates together
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
 
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
@@ -19,4 +24,13 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:30"
+      timezone: "Asia/Tokyo"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"  
+      time: "10:00"
       timezone: "Asia/Tokyo"
