@@ -22,6 +22,10 @@ requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.2.0",
     "pydantic>=2.5.0",
+    "sentence-transformers>=2.2.2",
+    "faiss-cpu>=1.7.4",
+    "numpy>=1.24.0",
+    "asyncio",
     "aiofiles>=23.2.0",
     "typing-extensions>=4.8.0",
 ]
@@ -35,15 +39,8 @@ dev = [
     "mypy>=1.5.0",
     "pre-commit>=3.4.0",
 ]
-# Phase 3 予定: セマンティック検索機能
-semantic = [
-    "sentence-transformers>=2.2.2",
-    "faiss-cpu>=1.7.2",
-    "numpy>=1.24.0",
-]
-# GPU版は現在Python 3.11+と互換性問題あり
 gpu = [
-    "faiss-gpu>=1.7.2; python_version<'3.11'",
+    "faiss-gpu>=1.7.4",
 ]
 
 [project.urls]
