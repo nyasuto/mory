@@ -18,24 +18,40 @@ GOMOD=$(GOCMD) mod
 # Build flags
 LDFLAGS=-ldflags "-w -s"
 BUILD_FLAGS=-v
+FTS5_TAGS=-tags "sqlite_fts5"
+STANDARD_TAGS=
 
 # Default target
 .PHONY: all
 all: clean fmt test build
 
-# Build the binary
+# Build the binary (with FTS5 support by default)
 .PHONY: build
 build:
-	@echo "Building $(BINARY_NAME)..."
+	@echo "Building $(BINARY_NAME) with FTS5 support..."
 	@mkdir -p bin
-	$(GOBUILD) $(BUILD_FLAGS) $(LDFLAGS) -o $(BINARY_PATH) $(CMD_PATH)
+	$(GOBUILD) $(BUILD_FLAGS) $(FTS5_TAGS) $(LDFLAGS) -o $(BINARY_PATH) $(CMD_PATH)
 	@echo "Binary built: $(BINARY_PATH)"
 
-# Run in development mode
+# Build without FTS5 (fallback for compatibility)
+.PHONY: build-standard
+build-standard:
+	@echo "Building $(BINARY_NAME) without FTS5 (fallback mode)..."
+	@mkdir -p bin
+	$(GOBUILD) $(BUILD_FLAGS) $(STANDARD_TAGS) $(LDFLAGS) -o $(BINARY_PATH) $(CMD_PATH)
+	@echo "Binary built: $(BINARY_PATH)"
+
+# Run in development mode (with FTS5 by default)
 .PHONY: run
 run:
-	@echo "Running $(BINARY_NAME) in development mode..."
-	$(GOCMD) run $(CMD_PATH)
+	@echo "Running $(BINARY_NAME) in development mode with FTS5..."
+	$(GOCMD) run $(FTS5_TAGS) $(CMD_PATH)
+
+# Run in development mode without FTS5
+.PHONY: run-standard
+run-standard:
+	@echo "Running $(BINARY_NAME) in development mode without FTS5..."
+	$(GOCMD) run $(STANDARD_TAGS) $(CMD_PATH)
 
 # Format code
 .PHONY: fmt
@@ -54,17 +70,31 @@ lint:
 		$(GOCMD) vet ./...; \
 	fi
 
-# Run tests
+# Run tests (with FTS5 by default)
 .PHONY: test
 test:
-	@echo "Running tests..."
-	$(GOTEST) -v ./...
+	@echo "Running tests with FTS5 support..."
+	$(GOTEST) $(FTS5_TAGS) -v ./...
 
-# Run tests with coverage
+# Run tests without FTS5
+.PHONY: test-standard
+test-standard:
+	@echo "Running tests without FTS5..."
+	$(GOTEST) $(STANDARD_TAGS) -v ./...
+
+# Run tests with coverage (FTS5 enabled)
 .PHONY: test-coverage
 test-coverage:
-	@echo "Running tests with coverage..."
-	$(GOTEST) -v -coverprofile=coverage.out ./...
+	@echo "Running tests with coverage (FTS5 enabled)..."
+	$(GOTEST) $(FTS5_TAGS) -v -coverprofile=coverage.out ./...
+	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Run tests with coverage (standard mode)
+.PHONY: test-coverage-standard
+test-coverage-standard:
+	@echo "Running tests with coverage (standard mode)..."
+	$(GOTEST) $(STANDARD_TAGS) -v -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
@@ -127,12 +157,20 @@ dev-setup: deps tidy
 quality: fmt lint test
 	@echo "Quality checks completed"
 
-# Release build (optimized)
+# Release build (optimized with FTS5)
 .PHONY: release
 release: clean fmt test
-	@echo "Building release version..."
+	@echo "Building release version with FTS5..."
 	@mkdir -p bin
-	CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -a -installsuffix cgo -o $(BINARY_PATH) $(CMD_PATH)
+	CGO_ENABLED=1 $(GOBUILD) $(FTS5_TAGS) $(LDFLAGS) -a -o $(BINARY_PATH) $(CMD_PATH)
+	@echo "Release binary built: $(BINARY_PATH)"
+
+# Release build without FTS5 (for environments without CGO)
+.PHONY: release-standard
+release-standard: clean fmt test-standard
+	@echo "Building release version without FTS5 (CGO disabled)..."
+	@mkdir -p bin
+	CGO_ENABLED=0 $(GOBUILD) $(STANDARD_TAGS) $(LDFLAGS) -a -installsuffix cgo -o $(BINARY_PATH) $(CMD_PATH)
 	@echo "Release binary built: $(BINARY_PATH)"
 
 # Install git hooks
@@ -158,18 +196,29 @@ install-hooks:
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  build          - Build the binary"
-	@echo "  run            - Run in development mode"
+	@echo ""
+	@echo "FTS5-enabled builds (default):"
+	@echo "  build          - Build the binary with FTS5 support"
+	@echo "  run            - Run in development mode with FTS5"
+	@echo "  test           - Run tests with FTS5 support"
+	@echo "  test-coverage  - Run tests with coverage report (FTS5)"
+	@echo "  release        - Build optimized release binary (FTS5)"
+	@echo ""
+	@echo "Standard builds (fallback without FTS5):"
+	@echo "  build-standard     - Build without FTS5 support"
+	@echo "  run-standard       - Run in development mode without FTS5"
+	@echo "  test-standard      - Run tests without FTS5"
+	@echo "  test-coverage-standard - Run tests with coverage (no FTS5)"
+	@echo "  release-standard   - Build release binary without FTS5"
+	@echo ""
+	@echo "Development:"
 	@echo "  fmt            - Format Go code"
 	@echo "  lint           - Run linter"
-	@echo "  test           - Run tests"
-	@echo "  test-coverage  - Run tests with coverage report"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  tidy           - Tidy Go modules"
 	@echo "  deps           - Download dependencies"
 	@echo "  install        - Install binary to GOPATH/bin"
 	@echo "  dev-setup      - Setup development environment"
 	@echo "  quality        - Run all quality checks (fmt, lint, test)"
-	@echo "  release        - Build optimized release binary"
 	@echo "  install-hooks  - Install git hooks for quality checks"
 	@echo "  help           - Show this help"
