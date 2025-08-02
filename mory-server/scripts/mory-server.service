@@ -1,0 +1,47 @@
+[Unit]
+Description=Mory Personal Memory Server
+After=network.target
+Wants=network.target
+
+[Service]
+Type=exec
+User=mory
+Group=mory
+WorkingDirectory=/opt/mory-server
+Environment=PATH=/opt/mory-server/.venv/bin
+ExecStart=/opt/mory-server/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mory-server
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/mory-server/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Environment variables
+Environment=MORY_HOST=0.0.0.0
+Environment=MORY_PORT=8080
+Environment=MORY_DATA_DIR=/opt/mory-server/data
+Environment=MORY_DEBUG=false
+# Add OpenAI API key via environment file or override
+EnvironmentFile=-/opt/mory-server/.env
+
+[Install]
+WantedBy=multi-user.target
