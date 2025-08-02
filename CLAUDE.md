@@ -63,11 +63,11 @@ See [API.md](./API.md) for complete data model specifications.
 5. **obsidian_import** - Import Obsidian vault notes
 6. **generate_obsidian_note** - Generate notes from memories using templates
 
-See [API.md](./API.md) for detailed tool specifications and parameters.
+See [API.md](./docs/API.md) for detailed tool specifications and parameters.
 
 ## Setup & Integration
 
-**Claude Desktop**: See [QUICKSTART.md](./QUICKSTART.md) for complete setup instructions.
+**Claude Desktop**: See [QUICKSTART.md](./docs/QUICKSTART.md) for complete setup instructions.
 
 **Obsidian Integration**: Set `MORY_OBSIDIAN_VAULT_PATH` environment variable or create config file.
 
@@ -91,8 +91,8 @@ See [API.md](./API.md) for detailed tool specifications and parameters.
 - **Production Ready**: Stable, documented, ready for Claude Desktop
 
 ### Usage Examples
-See [QUICKSTART.md](./QUICKSTART.md) for complete usage examples and setup instructions.
-See [API.md](./API.md) for detailed technical specifications.
+See [QUICKSTART.md](./docs/QUICKSTART.md) for complete usage examples and setup instructions.
+See [API.md](./docs/API.md) for detailed technical specifications.
 
 ## Important Reminders
 - Focus on requested functionality only
