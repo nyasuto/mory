@@ -6,11 +6,11 @@ import sys
 from .server import MoryServer
 
 
-def main() -> None:
+async def main() -> None:
     """Main entry point."""
     try:
         server = MoryServer()
-        asyncio.run(server.run())
+        await server.run()
     except KeyboardInterrupt:
         print("Server stopped by user", file=sys.stderr)
     except Exception as e:
@@ -19,4 +19,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
