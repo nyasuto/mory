@@ -1,53 +1,6 @@
 """Tests for memory search API endpoints"""
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.core.database import Base, get_db
-from app.main import app
-
-# Test database setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    poolclass=StaticPool,
-    connect_args={"check_same_thread": False},
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for testing"""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-
-# Create test client
-client = TestClient(app)
-
-
-@pytest.fixture(scope="function")
-def db_session():
-    """Create a fresh database for each test"""
-    from app.core.database import create_tables
-
-    Base.metadata.create_all(bind=engine)
-    # Initialize FTS5 tables for testing
-    try:
-        create_tables()
-    except Exception:
-        pass  # FTS5 might not be available in test environment
-    yield
-    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
@@ -90,7 +43,7 @@ def sample_memories():
 class TestSearchAPI:
     """Tests for POST /api/memories/search"""
 
-    def test_search_empty_database(self, db_session):
+    def test_search_empty_database(self, client, db_session):
         """Test search with empty database"""
         search_request = {"query": "python", "limit": 10, "offset": 0}
 
@@ -103,7 +56,7 @@ class TestSearchAPI:
         assert data["query"] == "python"
         assert "execution_time_ms" in data
 
-    def test_search_basic_query(self, db_session, sample_memories):
+    def test_search_basic_query(self, client, db_session, sample_memories):
         """Test basic search functionality"""
         # Create test memories
         for memory_data in sample_memories:
@@ -127,7 +80,7 @@ class TestSearchAPI:
             assert "search_type" in result
             assert 0.0 <= result["score"] <= 1.0
 
-    def test_search_with_category_filter(self, db_session, sample_memories):
+    def test_search_with_category_filter(self, client, db_session, sample_memories):
         """Test search with category filtering"""
         # Create test memories
         for memory_data in sample_memories:
@@ -147,7 +100,7 @@ class TestSearchAPI:
 
         assert data["filters"]["category"] == "programming"
 
-    def test_search_with_tags_filter(self, db_session, sample_memories):
+    def test_search_with_tags_filter(self, client, db_session, sample_memories):
         """Test search with tags filtering"""
         # Create test memories
         for memory_data in sample_memories:
@@ -167,7 +120,7 @@ class TestSearchAPI:
 
         assert data["filters"]["tags"] == ["python"]
 
-    def test_search_pagination(self, db_session, sample_memories):
+    def test_search_pagination(self, client, db_session, sample_memories):
         """Test search pagination"""
         # Create test memories
         for memory_data in sample_memories:
@@ -194,7 +147,7 @@ class TestSearchAPI:
         data = response.json()
         # Should have results or be empty if all data was on first page
 
-    def test_search_different_types(self, db_session, sample_memories):
+    def test_search_different_types(self, client, db_session, sample_memories):
         """Test different search types"""
         # Create test memories
         for memory_data in sample_memories:
@@ -218,7 +171,7 @@ class TestSearchAPI:
             assert "search_type" in data
             assert "results" in data
 
-    def test_search_validation_errors(self, db_session):
+    def test_search_validation_errors(self, client, db_session):
         """Test search request validation"""
         # Empty query
         search_request = {"query": "", "limit": 10, "offset": 0}
@@ -238,7 +191,7 @@ class TestSearchAPI:
         response = client.post("/api/memories/search", json=search_request)
         assert response.status_code == 422
 
-    def test_search_japanese_content(self, db_session):
+    def test_search_japanese_content(self, client, db_session):
         """Test search with Japanese content"""
         # Create Japanese memory
         japanese_memory = {
@@ -272,7 +225,7 @@ class TestSearchAPI:
 class TestSearchPerformance:
     """Performance tests for search API"""
 
-    def test_search_response_time(self, db_session, sample_memories):
+    def test_search_response_time(self, client, db_session, sample_memories):
         """Test that search response time is under 50ms"""
         import time
 
@@ -293,7 +246,7 @@ class TestSearchPerformance:
         data = response.json()
         assert data["execution_time_ms"] < 50
 
-    def test_search_with_large_dataset(self, db_session):
+    def test_search_with_large_dataset(self, client, db_session):
         """Test search performance with larger dataset"""
         # Create more memories for performance testing
         for i in range(50):
