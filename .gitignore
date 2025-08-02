@@ -50,3 +50,28 @@ go.sum.tmp
 # Build artifacts
 dist/
 build/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Python tools
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
