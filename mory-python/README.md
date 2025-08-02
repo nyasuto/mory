@@ -19,8 +19,6 @@ MoryのPython実装版です。セマンティック検索機能を搭載し、�
 
 ## 📦 インストール
 
-### モダンなPythonツールチェーン (推奨)
-
 ```bash
 # uvのインストール (未インストールの場合)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -29,23 +27,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 cd mory-python
 
 # 依存関係のインストール
-uv pip install -r requirements.txt
+uv pip install -e .
 
 # 開発環境のセットアップ
-uv pip install -r requirements-dev.txt
-```
-
-### 従来の方法
-
-```bash
-# プロジェクトのクローン
-cd mory-python
-
-# 依存関係のインストール
-pip install -r requirements.txt
-
-# 開発環境のセットアップ
-pip install -r requirements-dev.txt
+uv pip install -e ".[dev]"
 ```
 
 ## 🔧 設定
@@ -85,8 +70,8 @@ make format              # ruffフォーマッター
 make type-check          # mypy型チェック
 make run                 # サーバー起動
 
-# uvを使用した高速インストール
-make uv-sync-dev         # 開発環境同期
+# uvを使用した開発環境同期
+make uv-sync-dev         # 高速同期
 ```
 
 ### モダンな開発体験

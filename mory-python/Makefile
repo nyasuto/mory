@@ -17,10 +17,10 @@ help:
 
 # Installation
 install:
-	uv pip install -r requirements.txt
+	uv pip install -e .
 
 install-dev:
-	uv pip install -r requirements-dev.txt
+	uv pip install -e ".[dev]"
 
 # Testing
 test:
@@ -61,14 +61,9 @@ clean:
 run:
 	python src/mory/main.py
 
-# uv-specific commands
-uv-install:
-	uv pip install -e .
-
+# uv-specific commands (advanced)
 uv-sync:
-	uv lock
-	uv pip sync requirements.txt
+	uv sync
 
 uv-sync-dev:
-	uv lock
-	uv pip sync requirements-dev.txt
+	uv sync --all-extras
