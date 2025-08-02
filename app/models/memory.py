@@ -58,7 +58,7 @@ class Memory(Base):
     def tags_list(self) -> list[str]:
         """Get tags as Python list"""
         try:
-            return json.loads(self.tags) if self.tags else []
+            return json.loads(self.tags) if self.tags else []  # type: ignore
         except json.JSONDecodeError:
             return []
 

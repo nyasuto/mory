@@ -67,7 +67,7 @@ async def get_memory_stats(db: Session = Depends(get_db)) -> MemoryStatsResponse
 
     # Category breakdown
     category_counts: dict[str, int] = dict(
-        db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()
+        db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()  # type: ignore
     )
 
     # Recent memories (last 24 hours)
