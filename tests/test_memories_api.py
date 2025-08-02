@@ -39,14 +39,8 @@ client = TestClient(app)
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database for each test"""
-    from app.core.database import create_tables
-
-    # Initialize all tables including FTS5 for testing using the test engine
-    try:
-        create_tables(engine_override=engine)
-    except Exception:
-        # Fallback to basic table creation if FTS5 fails
-        Base.metadata.create_all(bind=engine)
+    # Simply create tables using SQLAlchemy
+    Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
