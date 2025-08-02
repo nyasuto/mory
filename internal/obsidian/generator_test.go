@@ -1,6 +1,7 @@
 package obsidian
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -22,7 +23,8 @@ func NewMockMemoryStore() *MockMemoryStore {
 }
 
 func (m *MockMemoryStore) Save(mem *memory.Memory) (string, error) {
-	id := memory.GenerateID()
+	id := fmt.Sprintf("memory_test_%d", m.nextID)
+	m.nextID++
 	mem.ID = id
 	mem.CreatedAt = time.Now()
 	mem.UpdatedAt = time.Now()
