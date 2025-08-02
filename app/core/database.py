@@ -53,22 +53,24 @@ def get_db():
         db.close()
 
 
-def create_tables():
+def create_tables(engine_override=None):
     """Create all database tables and FTS5 search tables"""
-    Base.metadata.create_all(bind=engine)
+    db_engine = engine_override if engine_override else engine
+    Base.metadata.create_all(bind=db_engine)
 
     # Initialize FTS5 search functionality if available
-    if check_fts5_support():
-        create_fts5_table()
+    if check_fts5_support(db_engine):
+        create_fts5_table(db_engine)
         print("✅ FTS5 search enabled")
     else:
         print("⚠️  FTS5 not available, falling back to LIKE search")
 
 
-def check_fts5_support() -> bool:
+def check_fts5_support(engine_override=None) -> bool:
     """Check if SQLite FTS5 extension is available"""
+    db_engine = engine_override if engine_override else engine
     try:
-        with engine.connect() as conn:
+        with db_engine.connect() as conn:
             conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts_test USING fts5(content)")
             conn.execute("DROP TABLE fts_test")
             return True
@@ -76,10 +78,11 @@ def check_fts5_support() -> bool:
         return False
 
 
-def create_fts5_table():
+def create_fts5_table(engine_override=None):
     """Create FTS5 virtual table for full-text search"""
+    db_engine = engine_override if engine_override else engine
     try:
-        with engine.connect() as conn:
+        with db_engine.connect() as conn:
             # Create FTS5 virtual table with Japanese tokenizer support
             conn.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
@@ -131,10 +134,11 @@ def create_fts5_table():
         return False
 
 
-def rebuild_fts5_index():
+def rebuild_fts5_index(engine_override=None):
     """Rebuild FTS5 index with all existing memories"""
+    db_engine = engine_override if engine_override else engine
     try:
-        with engine.connect() as conn:
+        with db_engine.connect() as conn:
             # Clear existing FTS5 data
             conn.execute("DELETE FROM memories_fts")
 

@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -40,13 +40,13 @@ client = TestClient(app)
 def db_session():
     """Create a fresh database for each test"""
     from app.core.database import create_tables
-    
-    Base.metadata.create_all(bind=engine)
-    # Initialize FTS5 tables for testing
+
+    # Initialize all tables including FTS5 for testing using the test engine
     try:
-        create_tables()
+        create_tables(engine_override=engine)
     except Exception:
-        pass  # FTS5 might not be available in test environment
+        # Fallback to basic table creation if FTS5 fails
+        Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
