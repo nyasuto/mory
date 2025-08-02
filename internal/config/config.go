@@ -27,11 +27,20 @@ type SemanticConfig struct {
 	Enabled             bool    `json:"enabled"`              // false by default
 }
 
+// StorageConfig represents storage backend configuration
+type StorageConfig struct {
+	Type       string `json:"type"`        // "json" or "sqlite"
+	JSONPath   string `json:"json_path"`   // Path to JSON file
+	SQLitePath string `json:"sqlite_path"` // Path to SQLite database
+	LogPath    string `json:"log_path"`    // Path to operation log file
+}
+
 // Config represents the application configuration
 type Config struct {
 	DataPath   string          `json:"data_path"`
 	ServerPort int             `json:"server_port"`
 	LogLevel   string          `json:"log_level"`
+	Storage    *StorageConfig  `json:"storage,omitempty"`
 	Obsidian   *ObsidianConfig `json:"obsidian,omitempty"`
 	Semantic   *SemanticConfig `json:"semantic,omitempty"`
 }
@@ -42,6 +51,12 @@ func DefaultConfig() *Config {
 		DataPath:   "data/memories.json",
 		ServerPort: 8080,
 		LogLevel:   "info",
+		Storage: &StorageConfig{
+			Type:       "json", // Default to JSON for backward compatibility
+			JSONPath:   "data/memories.json",
+			SQLitePath: "data/memories.db",
+			LogPath:    "data/operations.log",
+		},
 		Semantic: &SemanticConfig{
 			EmbeddingModel:      "text-embedding-3-small",
 			MaxBatchSize:        100,
