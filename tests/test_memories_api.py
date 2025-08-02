@@ -31,19 +31,15 @@ def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 
-# Create test client
-client = TestClient(app)
 
-
-@pytest.fixture(scope="function", autouse=True)
-def setup_test_db():
-    """Create a fresh database for each test"""
-    # Create all tables for each test
+def setup_test_database():
+    """Ensure database is properly set up for testing"""
+    # Force creation of all tables
+    Base.metadata.drop_all(bind=engine)  # Clean start
     Base.metadata.create_all(bind=engine)
     
     # Initialize FTS5 tables for testing
     try:
-        # Manually create FTS5 table if available
         with engine.connect() as connection:
             try:
                 # Try to create FTS5 table
@@ -57,9 +53,20 @@ def setup_test_db():
                 pass
     except Exception:
         pass  # FTS5 might not be available in test environment
-    
+
+
+# Create test client
+client = TestClient(app)
+
+# Ensure database is set up at module import time
+setup_test_database()
+
+
+@pytest.fixture(scope="function", autouse=True)
+def setup_test_db():
+    """Create a fresh database for each test"""
+    setup_test_database()
     yield
-    
     # Clean up after test
     Base.metadata.drop_all(bind=engine)
 
