@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-# No additional typing imports needed for Python 3.11+
 
+# No additional typing imports needed for Python 3.11+
 import aiofiles
 
 from .memory import (
@@ -20,13 +20,13 @@ from .memory import (
 class JSONMemoryStore:
     """JSON-based implementation of MemoryStore."""
 
-    def __init__(self, data_dir: str = "data") -> None:
+    def __init__(self, data_dir: str | None = None) -> None:
         """Initialize the JSON memory store.
 
         Args:
             data_dir: Directory to store data files
         """
-        self.data_dir = Path(data_dir)
+        self.data_dir = Path(data_dir or "data")
         self.memories_file = self.data_dir / "memories.json"
         self.operations_file = self.data_dir / "operations.json"
         self._memories: dict[str, Memory] = {}
@@ -143,7 +143,7 @@ class JSONMemoryStore:
             raise MemoryNotFoundError(id)
         return self._memories[id]
 
-    async def list(self, category: str | None = None) -> list[Memory]:
+    async def list_memories(self, category: str | None = None) -> list[Memory]:
         """List memories, optionally filtered by category."""
         memories = list(self._memories.values())
 
@@ -158,14 +158,14 @@ class JSONMemoryStore:
         """Search memories using string-based matching."""
         if not query.query.strip():
             # Return all memories for empty query
-            memories = await self.list(query.category)
+            memories = await self.list_memories(query.category)
             return [
                 SearchResult(memory=memory, score=1.0)
                 for memory in memories[: query.limit]
             ]
 
         # Get candidate memories
-        memories = await self.list(query.category)
+        memories = await self.list_memories(query.category)
         results = []
         query_lower = query.query.lower().strip()
 

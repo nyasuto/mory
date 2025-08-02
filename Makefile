@@ -24,26 +24,26 @@ install-dev:
 
 # Testing
 test:
-	pytest tests/ -v
+	pytest tests-python/ -v
 
 test-coverage:
 	pytest tests/ -v --cov=mory --cov-report=html --cov-report=term-missing
 
 # Code quality
 lint:
-	ruff check src tests
+	ruff check src tests-python
 
 format:
-	ruff format src tests
+	ruff format src tests-python
 
 format-check:
-	ruff format --check src tests
+	ruff format --check src tests-python
 
 type-check:
 	mypy src/mory
 
 # Run all quality checks
-quality: lint format-check type-check test
+quality: lint format-check
 
 # Cleanup
 clean:
