@@ -143,13 +143,13 @@ func TestLoadConfig_PartialConfig(t *testing.T) {
 		t.Errorf("Expected DataPath 'custom/path.json', got '%s'", config.DataPath)
 	}
 
-	// These should be zero values since not specified in JSON
-	if config.ServerPort != 0 {
-		t.Errorf("Expected ServerPort 0 (zero value), got %d", config.ServerPort)
+	// These should be default values since LoadConfig now applies defaults
+	if config.ServerPort != 8080 {
+		t.Errorf("Expected ServerPort 8080 (default value), got %d", config.ServerPort)
 	}
 
-	if config.LogLevel != "" {
-		t.Errorf("Expected LogLevel '' (zero value), got '%s'", config.LogLevel)
+	if config.LogLevel != "info" {
+		t.Errorf("Expected LogLevel 'info' (default value), got '%s'", config.LogLevel)
 	}
 }
 

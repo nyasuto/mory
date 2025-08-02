@@ -49,4 +49,4 @@ go.sum.tmp
 
 # Build artifacts
 dist/
-build/
+.env
