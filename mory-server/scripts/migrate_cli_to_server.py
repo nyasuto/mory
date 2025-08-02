@@ -10,7 +10,7 @@ import argparse
 import json
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -119,9 +119,8 @@ class DataMigrator:
         if self.dry_run:
             print("🔄 DRY RUN: Would migrate the following memories:")
             for memory in old_memories[:5]:  # Show first 5
-                print(
-                    f"  - {memory['category']}/{memory.get('key', 'no-key')}: {memory['value'][:50]}..."
-                )
+                key = memory["key"] if memory["key"] else "no-key"
+                print(f"  - {memory['category']}/{key}: {memory['value'][:50]}...")
             if len(old_memories) > 5:
                 print(f"  ... and {len(old_memories) - 5} more")
             return True
@@ -133,24 +132,24 @@ class DataMigrator:
                 self.stats["memories_processed"] += 1
 
                 try:
-                    # Parse dates
-                    created_at = self._parse_datetime(old_memory.get("created_at"))
-                    updated_at = self._parse_datetime(old_memory.get("updated_at"))
+                    # Parse dates (CLIデータベースではUNIXタイムスタンプ)
+                    created_at = self._parse_datetime(old_memory["created_at"])
+                    updated_at = self._parse_datetime(old_memory["updated_at"])
 
                     # Parse tags
-                    tags = self._parse_tags(old_memory.get("tags", "[]"))
+                    tags = self._parse_tags(old_memory["tags"] or "[]")
 
                     # Create new memory record
                     new_memory = Memory(
-                        id=old_memory.get("id") or f"mem_{self._generate_id()}",
+                        id=old_memory["id"] or f"mem_{self._generate_id()}",
                         category=old_memory["category"],
-                        key=old_memory.get("key"),
+                        key=old_memory["key"],
                         value=old_memory["value"],
                         tags=json.dumps(tags),
                         created_at=created_at,
                         updated_at=updated_at,
-                        embedding=old_memory.get("embedding"),  # Binary data
-                        embedding_hash=old_memory.get("embedding_hash"),
+                        embedding=old_memory["embedding"],  # Binary data
+                        embedding_hash=old_memory["embedding_hash"],
                     )
 
                     session.add(new_memory)
@@ -160,7 +159,7 @@ class DataMigrator:
                         print(f"  📝 Processed {self.stats['memories_processed']} memories...")
 
                 except Exception as e:
-                    error_msg = f"Error migrating memory {old_memory.get('id', 'unknown')}: {e}"
+                    error_msg = f"Error migrating memory {old_memory['id'] if old_memory['id'] else 'unknown'}: {e}"
                     self.stats["errors"].append(error_msg)
                     print(f"  ❌ {error_msg}")
 
@@ -270,21 +269,29 @@ class DataMigrator:
             print(f"\n📂 New database created: {self.new_db_path}")
         print("=" * 60)
 
-    def _parse_datetime(self, date_str: str | None) -> datetime:
+    def _parse_datetime(self, date_str: str | int | None) -> datetime:
         """Parse datetime string from various formats"""
         if not date_str:
-            return datetime.utcnow()
+            return datetime.now(UTC)
 
+        # Handle Unix timestamp (integer)
+        if isinstance(date_str, int):
+            try:
+                return datetime.fromtimestamp(date_str / 1000)  # Assuming milliseconds
+            except (ValueError, OSError):
+                return datetime.now(UTC)
+
+        # Handle string formats
         try:
             # Try ISO format first
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            return datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
         except (ValueError, AttributeError):
             try:
                 # Try alternative formats
-                return datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                return datetime.strptime(str(date_str), "%Y-%m-%d %H:%M:%S")
             except ValueError:
                 # Fallback to current time
-                return datetime.utcnow()
+                return datetime.now(UTC)
 
     def _parse_tags(self, tags_str: str) -> list[str]:
         """Parse tags from JSON string"""
@@ -319,6 +326,7 @@ def main():
     parser.add_argument("new_db", help="Path for new server database file")
     parser.add_argument("--dry-run", action="store_true", help="Analyze only, don't migrate")
     parser.add_argument("--backup", action="store_true", help="Create backup of old database")
+    parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
 
     args = parser.parse_args()
 
@@ -338,9 +346,9 @@ def main():
         migrator = DataMigrator(args.old_db, args.new_db, dry_run=args.dry_run)
 
         # Analyze old database
-        analysis = migrator.analyze_old_database()
+        migrator.analyze_old_database()
 
-        if not args.dry_run:
+        if not args.dry_run and not args.force:
             response = input("\n❓ Proceed with migration? (y/N): ")
             if response.lower() != "y":
                 print("❌ Migration cancelled")
