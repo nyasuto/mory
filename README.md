@@ -62,9 +62,9 @@ Claude Desktop設定ファイルに追加：
 → search_memories ツールが関連する記憶を検索します
 ```
 
-**📖 詳細なセットアップガイド**: [QUICKSTART.md](./QUICKSTART.md) で詳しい手順と例を確認してください。
+**📖 詳細なセットアップガイド**: [QUICKSTART.md](./docs/QUICKSTART.md) で詳しい手順と例を確認してください。
 
-**🔧 技術仕様**: [API.md](./API.md) で詳細なAPIリファレンスと技術仕様を確認してください。
+**🔧 技術仕様**: [API.md](./docs/API.md) で詳細なAPIリファレンスと技術仕様を確認してください。
 
 ## 🛠️ 利用可能なMCPツール
 
@@ -124,8 +124,8 @@ MIT License - このプロジェクトを自由に使用・改変してくださ
 **現在のステータス**: ✅ Phase 2 完了 - 検索・Obsidian連携機能がプロダクション対応
 
 **クイックリンク**:
-- 📖 [完全セットアップガイド](./QUICKSTART.md)
-- 🔧 [技術文書](./API.md)
+- 📖 [完全セットアップガイド](./docs/QUICKSTART.md)
+- 🔧 [技術文書](./docs/API.md)
 - 🚀 [コントリビューションガイド](./CONTRIBUTING.md)
 
 *Mory - あなたのClaudeのためのパーソナルメモリハリネズミ 🦔*
