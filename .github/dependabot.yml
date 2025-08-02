@@ -1,10 +1,10 @@
-# Dependabot configuration for Mory project (Python)
+# Dependabot configuration for Mory project
 # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  # Python pip dependencies
-  - package-ecosystem: "pip"
+  # Go module dependencies
+  - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
