@@ -54,8 +54,15 @@ def get_db():
 
 
 def create_tables():
-    """Create all database tables"""
+    """Create all database tables and FTS5 search tables"""
     Base.metadata.create_all(bind=engine)
+
+    # Initialize FTS5 search functionality if available
+    if check_fts5_support():
+        create_fts5_table()
+        print("✅ FTS5 search enabled")
+    else:
+        print("⚠️  FTS5 not available, falling back to LIKE search")
 
 
 def check_fts5_support() -> bool:
@@ -66,4 +73,79 @@ def check_fts5_support() -> bool:
             conn.execute("DROP TABLE fts_test")
             return True
     except Exception:
+        return False
+
+
+def create_fts5_table():
+    """Create FTS5 virtual table for full-text search"""
+    try:
+        with engine.connect() as conn:
+            # Create FTS5 virtual table with Japanese tokenizer support
+            conn.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+                    id UNINDEXED,
+                    category,
+                    key,
+                    value,
+                    tags,
+                    content='memories',
+                    tokenize='unicode61 remove_diacritics 2'
+                )
+            """)
+
+            # Create triggers for automatic synchronization
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS memories_fts_insert
+                AFTER INSERT ON memories
+                BEGIN
+                    INSERT INTO memories_fts(id, category, key, value, tags)
+                    VALUES (new.id, new.category, new.key, new.value, new.tags);
+                END
+            """)
+
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS memories_fts_update
+                AFTER UPDATE ON memories
+                BEGIN
+                    UPDATE memories_fts
+                    SET category = new.category,
+                        key = new.key,
+                        value = new.value,
+                        tags = new.tags
+                    WHERE id = new.id;
+                END
+            """)
+
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS memories_fts_delete
+                AFTER DELETE ON memories
+                BEGIN
+                    DELETE FROM memories_fts WHERE id = old.id;
+                END
+            """)
+
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to create FTS5 table: {e}")
+        return False
+
+
+def rebuild_fts5_index():
+    """Rebuild FTS5 index with all existing memories"""
+    try:
+        with engine.connect() as conn:
+            # Clear existing FTS5 data
+            conn.execute("DELETE FROM memories_fts")
+
+            # Populate FTS5 table with existing data
+            conn.execute("""
+                INSERT INTO memories_fts(id, category, key, value, tags)
+                SELECT id, category, key, value, tags FROM memories
+            """)
+
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Failed to rebuild FTS5 index: {e}")
         return False

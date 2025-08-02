@@ -38,7 +38,14 @@ client = TestClient(app)
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database for each test"""
+    from app.core.database import create_tables
+
     Base.metadata.create_all(bind=engine)
+    # Initialize FTS5 tables for testing
+    try:
+        create_tables()
+    except Exception:
+        pass  # FTS5 might not be available in test environment
     yield
     Base.metadata.drop_all(bind=engine)
 

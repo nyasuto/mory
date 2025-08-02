@@ -122,3 +122,42 @@ class MessageResponse(BaseModel):
 
     message: str = Field(..., description="Success message")
     data: dict[str, Any] | None = Field(None, description="Additional response data")
+
+
+class SearchRequest(BaseModel):
+    """Request model for memory search"""
+
+    query: str = Field(..., description="Search query", min_length=1)
+    category: str | None = Field(None, description="Filter by category")
+    tags: list[str] | None = Field(None, description="Filter by tags")
+    date_from: datetime | None = Field(None, description="Search from date")
+    date_to: datetime | None = Field(None, description="Search to date")
+    limit: int = Field(20, ge=1, le=100, description="Maximum results")
+    offset: int = Field(0, ge=0, description="Results offset")
+    search_type: str = Field("hybrid", description="Search type: fts5, semantic, or hybrid")
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Search query cannot be empty")
+        return v.strip()
+
+
+class SearchResult(BaseModel):
+    """Individual search result with relevance score"""
+
+    memory: MemoryResponse = Field(..., description="Memory data")
+    score: float = Field(..., description="Relevance score (0.0-1.0)")
+    search_type: str = Field(..., description="Type of search that found this result")
+
+
+class SearchResponse(BaseModel):
+    """Response model for memory search"""
+
+    results: list[SearchResult] = Field(..., description="Search results")
+    total: int = Field(..., description="Total number of matches")
+    query: str = Field(..., description="Original search query")
+    search_type: str = Field(..., description="Search type used")
+    execution_time_ms: float = Field(..., description="Search execution time in milliseconds")
+    filters: dict[str, Any] = Field(..., description="Applied filters")

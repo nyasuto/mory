@@ -15,6 +15,8 @@ from ..models.schemas import (
     MemoryStatsResponse,
     MemoryUpdate,
     MessageResponse,
+    SearchRequest,
+    SearchResponse,
 )
 
 router = APIRouter()
@@ -218,3 +220,17 @@ async def update_memory(
     db.refresh(memory)
 
     return MemoryResponse.model_validate(memory)
+
+
+@router.post("/memories/search", response_model=SearchResponse)
+async def search_memories(
+    search_request: SearchRequest,
+    db: Session = Depends(get_db),
+) -> SearchResponse:
+    """Advanced memory search with FTS5 and semantic search support"""
+    from ..services.search import search_service
+
+    try:
+        return await search_service.search_memories(search_request, db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
