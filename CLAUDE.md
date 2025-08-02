@@ -89,6 +89,11 @@ See [API.md](./API.md) for detailed tool specifications and parameters.
 - **Async/Await**: Non-blocking I/O for MCP server operations
 - **JSON Storage**: Human-readable file-based data persistence
 
+### Project Policies
+- **Type Checking**: Minimal type checking policy for personal project - focus on runtime functionality over strict typing
+- **Code Quality**: Prioritize linting and formatting (ruff) over exhaustive type validation (mypy)
+- **Testing**: Focus on integration testing and real-world usage over comprehensive unit test coverage
+
 ### Usage Examples
 See [QUICKSTART.md](./QUICKSTART.md) for complete usage examples and setup instructions.
 See [API.md](./API.md) for detailed technical specifications.
