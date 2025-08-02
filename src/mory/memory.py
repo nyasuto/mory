@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 from uuid import uuid4
 
@@ -21,8 +21,8 @@ class Memory(BaseModel):
     tags: list[str] = Field(
         default_factory=list, description="Related tags for future search"
     )
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Semantic search fields (will be added in Phase 2)
     embedding: list[float] | None = Field(
@@ -36,7 +36,7 @@ class Memory(BaseModel):
 
     def update_timestamp(self) -> None:
         """Update the updated_at timestamp."""
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(UTC)
 
 
 class SearchResult(BaseModel):
@@ -67,7 +67,7 @@ class SearchQuery(BaseModel):
 class OperationLog(BaseModel):
     """Log entry for memory operations."""
 
-    timestamp: datetime = Field(default_factory=datetime.now)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     operation_id: str = Field(default_factory=lambda: f"op_{uuid4().hex[:8]}")
     operation: str = Field(..., description="Operation type (save, get, delete, etc.)")
     key: str | None = Field(default=None, description="Memory key if applicable")

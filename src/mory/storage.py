@@ -54,7 +54,7 @@ class JSONMemoryStore:
                 if content.strip():
                     data = json.loads(content)
                     self._memories = {
-                        mem_id: Memory.parse_obj(mem_data)
+                        mem_id: Memory.model_validate(mem_data)
                         for mem_id, mem_data in data.items()
                     }
                 else:
@@ -74,7 +74,7 @@ class JSONMemoryStore:
                 if content.strip():
                     data = json.loads(content)
                     self._operations = [
-                        OperationLog.parse_obj(op_data) for op_data in data
+                        OperationLog.model_validate(op_data) for op_data in data
                     ]
                 else:
                     self._operations = []
@@ -88,14 +88,16 @@ class JSONMemoryStore:
 
     async def _save_memories(self) -> None:
         """Save memories to JSON file."""
-        data = {mem_id: memory.dict() for mem_id, memory in self._memories.items()}
+        data = {
+            mem_id: memory.model_dump() for mem_id, memory in self._memories.items()
+        }
 
         async with aiofiles.open(self.memories_file, "w", encoding="utf-8") as f:
             await f.write(json.dumps(data, indent=2, ensure_ascii=False, default=str))
 
     async def _save_operations(self) -> None:
         """Save operations to JSON file."""
-        data = [op.dict() for op in self._operations]
+        data = [op.model_dump() for op in self._operations]
 
         async with aiofiles.open(self.operations_file, "w", encoding="utf-8") as f:
             await f.write(json.dumps(data, indent=2, ensure_ascii=False, default=str))
