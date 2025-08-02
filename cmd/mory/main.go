@@ -82,22 +82,36 @@ func Run(opts RunOptions) error {
 	log.Printf("[Main] Memory store initialized successfully (type: %s)", factory.GetStorageType())
 
 	// Initialize semantic search if OpenAI API key is provided
+	log.Printf("[Main] Checking semantic search configuration...")
+	log.Printf("[Main]   Semantic config exists: %t", cfg.Semantic != nil)
+	if cfg.Semantic != nil {
+		log.Printf("[Main]   OpenAI API key provided: %t", cfg.Semantic.OpenAIAPIKey != "")
+		log.Printf("[Main]   Semantic enabled: %t", cfg.Semantic.Enabled)
+		log.Printf("[Main]   Hybrid weight: %.2f", cfg.Semantic.HybridWeight)
+		log.Printf("[Main]   Similarity threshold: %.3f", cfg.Semantic.SimilarityThreshold)
+		log.Printf("[Main]   Embedding model: %s", cfg.Semantic.EmbeddingModel)
+	}
+
 	if cfg.Semantic != nil && cfg.Semantic.OpenAIAPIKey != "" && cfg.Semantic.Enabled {
 		log.Printf("[Main] Initializing semantic search engine...")
 
 		// Create embedding service
+		log.Printf("[Main] Creating OpenAI embedding service...")
 		embeddingService := semantic.NewOpenAIEmbeddingService(
 			cfg.Semantic.OpenAIAPIKey,
 			cfg.Semantic.EmbeddingModel,
 		)
 
 		// Create vector store
+		log.Printf("[Main] Creating local vector store...")
 		vectorStore := semantic.NewLocalVectorStore()
 
 		// Create keyword search engine (fallback)
+		log.Printf("[Main] Creating keyword search engine...")
 		keywordEngine := memory.NewSearchEngine(store)
 
 		// Create semantic search engine
+		log.Printf("[Main] Creating semantic search engine...")
 		semanticEngine := semantic.NewSemanticSearchEngine(
 			keywordEngine,
 			embeddingService,
@@ -108,9 +122,10 @@ func Run(opts RunOptions) error {
 		)
 
 		// Set semantic engine in the store
+		log.Printf("[Main] Setting semantic engine in memory store...")
 		store.SetSemanticEngine(semanticEngine)
 
-		log.Printf("[Main] Semantic search engine initialized with hybrid weight %.2f", cfg.Semantic.HybridWeight)
+		log.Printf("[Main] Semantic search engine initialized successfully with hybrid weight %.2f", cfg.Semantic.HybridWeight)
 	} else {
 		log.Printf("[Main] Semantic search disabled - no OpenAI API key provided or feature disabled")
 	}
