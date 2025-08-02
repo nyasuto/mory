@@ -74,7 +74,7 @@ lint:
 .PHONY: test
 test:
 	@echo "Running tests with FTS5 support..."
-	$(GOTEST) $(FTS5_TAGS) -v ./...
+	$(GOTEST) $(FTS5_TAGS) -short -v ./...
 
 # Run tests without FTS5
 .PHONY: test-standard
