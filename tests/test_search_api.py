@@ -43,7 +43,7 @@ def db_session():
     Base.metadata.create_all(bind=engine)
     # Initialize FTS5 tables for testing
     try:
-        create_tables()
+        create_tables(engine_override=engine)
     except Exception:
         pass  # FTS5 might not be available in test environment
     yield

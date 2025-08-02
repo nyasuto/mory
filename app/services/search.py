@@ -109,10 +109,13 @@ class SearchService:
                 if hasattr(memory, key) and key != "rank":
                     setattr(memory, key, value)
 
+            # FTS5 rank is negative and smaller values are better matches
+            # Convert to positive score where higher is better
+            fts_score = max(0.0, 1.0 + float(row.rank) / 10.0)
             results.append(
                 SearchResult(
                     memory=MemoryResponse.model_validate(memory),
-                    score=min(float(row.rank) / 10.0, 1.0),  # Normalize FTS5 rank
+                    score=min(fts_score, 1.0),
                     search_type="fts5",
                 )
             )
@@ -321,7 +324,9 @@ class SearchService:
     def _cosine_similarity(self, a: list[float], b: np.ndarray) -> float:
         """Calculate cosine similarity between two vectors"""
         a_array: np.ndarray = np.array(a)
-        return np.dot(a_array, b) / (np.linalg.norm(a_array) * np.linalg.norm(b))
+        similarity = np.dot(a_array, b) / (np.linalg.norm(a_array) * np.linalg.norm(b))
+        # Normalize from [-1, 1] to [0, 1] for consistency with other scores
+        return (similarity + 1) / 2
 
     def _calculate_like_score(self, memory: Memory, search_terms: list[str]) -> float:
         """Calculate relevance score for LIKE search"""
