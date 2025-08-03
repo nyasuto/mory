@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="text-embedding-3-large", alias="MORY_OPENAI_MODEL")
 
+    # Summary settings (Issue #110)
+    summary_enabled: bool = Field(default=True, alias="MORY_SUMMARY_ENABLED")
+    summary_model: str = Field(default="gpt-4-turbo", alias="MORY_SUMMARY_MODEL")
+    summary_max_length: int = Field(default=200, alias="MORY_SUMMARY_MAX_LENGTH")
+    summary_fallback_enabled: bool = Field(default=True, alias="MORY_SUMMARY_FALLBACK")
+
     # Obsidian integration
     obsidian_vault_path: str | None = Field(default=None, alias="MORY_OBSIDIAN_VAULT_PATH")
 
