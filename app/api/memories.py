@@ -213,7 +213,7 @@ async def list_memories(
         summary_memories = []
         for memory in memories:
             # Create summary response with truncated or AI-generated summary
-            summary = memory.summary
+            summary = memory.summary  # type: ignore
             if not summary:
                 # Create fallback summary if no AI summary exists
                 summary = (memory.value[:150] + "...") if len(memory.value) > 150 else memory.value
