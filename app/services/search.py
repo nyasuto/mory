@@ -16,7 +16,7 @@ from ..models.schemas import MemoryResponse, SearchRequest, SearchResponse, Sear
 class SearchService:
     """Service for memory search operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize search service with available search backends"""
         self.fts5_available = check_fts5_support()
         self.semantic_available = settings.is_semantic_available
@@ -320,8 +320,8 @@ class SearchService:
 
     def _cosine_similarity(self, a: list[float], b: np.ndarray) -> float:
         """Calculate cosine similarity between two vectors"""
-        a = np.array(a)
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        a_array = np.array(a, dtype=np.float32)
+        return float(np.dot(a_array, b) / (np.linalg.norm(a_array) * np.linalg.norm(b)))
 
     def _calculate_like_score(self, memory: Memory, search_terms: list[str]) -> float:
         """Calculate relevance score for LIKE search"""

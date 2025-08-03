@@ -41,7 +41,7 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
         existing_memory.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(existing_memory)
-        return MemoryResponse.model_validate(existing_memory)
+        return MemoryResponse.model_validate(existing_memory)  # type: ignore[no-any-return]
 
     # Create new memory
     new_memory = Memory(
@@ -55,7 +55,7 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
     db.commit()
     db.refresh(new_memory)
 
-    return MemoryResponse.model_validate(new_memory)
+    return MemoryResponse.model_validate(new_memory)  # type: ignore[no-any-return]
 
 
 @router.get("/memories/stats", response_model=MemoryStatsResponse)
@@ -125,7 +125,7 @@ async def get_memory(
             + " not found",
         )
 
-    return MemoryResponse.model_validate(memory)
+    return MemoryResponse.model_validate(memory)  # type: ignore[no-any-return]
 
 
 @router.get("/memories", response_model=MemoryListResponse)
@@ -219,7 +219,7 @@ async def update_memory(
     db.commit()
     db.refresh(memory)
 
-    return MemoryResponse.model_validate(memory)
+    return MemoryResponse.model_validate(memory)  # type: ignore[no-any-return]
 
 
 @router.post("/memories/search", response_model=SearchResponse)
