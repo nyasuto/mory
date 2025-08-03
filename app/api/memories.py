@@ -89,9 +89,10 @@ async def get_memory_stats(db: Session = Depends(get_db)) -> MemoryStatsResponse
     total_categories = db.query(func.count(func.distinct(Memory.category))).scalar()
 
     # Category breakdown
-    category_counts: dict[str, int] = dict(
-        db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()
-    )
+    category_counts: dict[str, int] = {
+        row[0]: row[1]
+        for row in db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()
+    }
 
     # Recent memories (last 24 hours)
     yesterday = datetime.utcnow() - timedelta(days=1)
