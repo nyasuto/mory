@@ -28,6 +28,10 @@ class Memory(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    # Summary fields (Issue #109)
+    summary = Column(Text, nullable=True)  # AI-generated summary
+    summary_generated_at = Column(DateTime, nullable=True)  # Summary generation timestamp
+
     # Semantic search fields
     embedding = Column(LargeBinary, nullable=True)  # Vector embedding
     embedding_hash = Column(String, nullable=True, index=True)  # Content hash for embedding
@@ -37,6 +41,7 @@ class Memory(Base):
         Index("idx_category_created", "category", "created_at"),
         Index("idx_updated_at", "updated_at"),
         Index("idx_key_category", "key", "category"),
+        Index("idx_summary_generated", "summary_generated_at"),  # Issue #109
     )
 
     @validates("tags")
@@ -82,6 +87,10 @@ class Memory(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "has_embedding": self.has_embedding,
+            "summary": self.summary,  # Issue #109
+            "summary_generated_at": self.summary_generated_at.isoformat()
+            if self.summary_generated_at
+            else None,  # Issue #109
         }
 
     def __repr__(self):

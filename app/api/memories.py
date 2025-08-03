@@ -18,6 +18,7 @@ from ..models.schemas import (
     SearchRequest,
     SearchResponse,
 )
+from ..services.summarization import summarization_service
 
 router = APIRouter()
 
@@ -39,6 +40,16 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
         existing_memory.value = memory_data.value  # type: ignore[assignment]
         existing_memory.tags_list = memory_data.tags
         existing_memory.updated_at = datetime.utcnow()  # type: ignore[assignment]
+
+        # Regenerate summary if content changed and enabled (Issue #110)
+        if summarization_service.enabled:
+            try:
+                summary = await summarization_service.generate_summary(memory_data.value)
+                existing_memory.summary = summary  # type: ignore[assignment]
+                existing_memory.summary_generated_at = datetime.utcnow()  # type: ignore[assignment]
+            except Exception as e:
+                print(f"Summary generation failed: {e}")
+
         db.commit()
         db.refresh(existing_memory)
         return MemoryResponse.model_validate(existing_memory)  # type: ignore[no-any-return]
@@ -50,6 +61,16 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
         value=memory_data.value,
         tags_list=memory_data.tags,
     )
+
+    # Generate summary if enabled (Issue #110)
+    if summarization_service.enabled:
+        try:
+            summary = await summarization_service.generate_summary(memory_data.value)
+            new_memory.summary = summary  # type: ignore[assignment]
+            new_memory.summary_generated_at = datetime.utcnow()  # type: ignore[assignment]
+        except Exception as e:
+            # If summary generation fails, continue without summary
+            print(f"Summary generation failed: {e}")
 
     db.add(new_memory)
     db.commit()

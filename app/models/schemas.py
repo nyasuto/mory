@@ -74,6 +74,10 @@ class MemoryResponse(MemoryBase):
     updated_at: datetime = Field(..., description="Last update timestamp")
     has_embedding: bool = Field(False, description="Whether memory has semantic embedding")
 
+    # Summary fields (Issue #109)
+    summary: str | None = Field(None, description="AI-generated summary")
+    summary_generated_at: datetime | None = Field(None, description="Summary generation timestamp")
+
     @field_validator("tags", mode="before")
     @classmethod
     def parse_tags(cls, v):
