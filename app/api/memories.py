@@ -39,22 +39,22 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
 
     if existing_memory:
         # Update existing memory
-        existing_memory.value = memory_data.value  # type: ignore[assignment]
+        existing_memory.value = memory_data.value
         existing_memory.tags_list = memory_data.tags
-        existing_memory.updated_at = datetime.utcnow()  # type: ignore[assignment]
+        existing_memory.updated_at = datetime.utcnow()
 
         # Regenerate summary if content changed and enabled (Issue #110)
         if summarization_service.enabled:
             try:
                 summary = await summarization_service.generate_summary(memory_data.value)
-                existing_memory.summary = summary  # type: ignore[assignment]
-                existing_memory.summary_generated_at = datetime.utcnow()  # type: ignore[assignment]
+                existing_memory.summary = summary
+                existing_memory.summary_generated_at = datetime.utcnow()
             except Exception as e:
                 print(f"Summary generation failed: {e}")
 
         db.commit()
         db.refresh(existing_memory)
-        return MemoryResponse.model_validate(existing_memory)  # type: ignore[no-any-return]
+        return MemoryResponse.model_validate(existing_memory)
 
     # Create new memory
     new_memory = Memory(
@@ -68,8 +68,8 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
     if summarization_service.enabled:
         try:
             summary = await summarization_service.generate_summary(memory_data.value)
-            new_memory.summary = summary  # type: ignore[assignment]
-            new_memory.summary_generated_at = datetime.utcnow()  # type: ignore[assignment]
+            new_memory.summary = summary
+            new_memory.summary_generated_at = datetime.utcnow()
         except Exception as e:
             # If summary generation fails, continue without summary
             print(f"Summary generation failed: {e}")
@@ -78,7 +78,7 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
     db.commit()
     db.refresh(new_memory)
 
-    return MemoryResponse.model_validate(new_memory)  # type: ignore[no-any-return]
+    return MemoryResponse.model_validate(new_memory)
 
 
 @router.get("/memories/stats", response_model=MemoryStatsResponse)
@@ -89,9 +89,10 @@ async def get_memory_stats(db: Session = Depends(get_db)) -> MemoryStatsResponse
     total_categories = db.query(func.count(func.distinct(Memory.category))).scalar()
 
     # Category breakdown
-    category_counts: dict[str, int] = dict(
-        db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()  # type: ignore[arg-type]
-    )
+    category_counts: dict[str, int] = {
+        row[0]: row[1]
+        for row in db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()
+    }
 
     # Recent memories (last 24 hours)
     yesterday = datetime.utcnow() - timedelta(days=1)
@@ -148,7 +149,7 @@ async def get_memory(
             + " not found",
         )
 
-    return MemoryResponse.model_validate(memory)  # type: ignore[no-any-return]
+    return MemoryResponse.model_validate(memory)
 
 
 # Issue #111: New detail endpoint for full content access
@@ -174,7 +175,7 @@ async def get_memory_detail(
             + " not found",
         )
 
-    return MemoryResponse.model_validate(memory)  # type: ignore[no-any-return]
+    return MemoryResponse.model_validate(memory)
 
 
 # Issue #111: Optimized list endpoint with summary-only responses
@@ -213,10 +214,10 @@ async def list_memories(
         summary_memories = []
         for memory in memories:
             # Create summary response with truncated or AI-generated summary
-            summary = memory.summary  # type: ignore
+            summary = memory.summary
             if not summary:
                 # Create fallback summary if no AI summary exists
-                summary = (memory.value[:150] + "...") if len(memory.value) > 150 else memory.value  # type: ignore
+                summary = (memory.value[:150] + "...") if len(memory.value) > 150 else memory.value
 
             summary_memory = MemorySummaryResponse(
                 id=str(memory.id),
@@ -224,8 +225,8 @@ async def list_memories(
                 key=str(memory.key) if memory.key else None,
                 tags=memory.tags_list or [],
                 summary=str(summary) if summary else None,
-                created_at=memory.created_at,  # type: ignore
-                updated_at=memory.updated_at,  # type: ignore
+                created_at=memory.created_at,
+                updated_at=memory.updated_at,
                 has_embedding=False,  # Will be updated when semantic search is implemented
             )
             summary_memories.append(summary_memory)
@@ -298,11 +299,11 @@ async def update_memory(
         else:
             setattr(memory, field, value)
 
-    memory.updated_at = datetime.utcnow()  # type: ignore[assignment]
+    memory.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(memory)
 
-    return MemoryResponse.model_validate(memory)  # type: ignore[no-any-return]
+    return MemoryResponse.model_validate(memory)
 
 
 @router.post("/memories/search", response_model=SearchResponse)
