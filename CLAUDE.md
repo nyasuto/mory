@@ -29,6 +29,45 @@ make test   # Run tests with pytest
 make quality      # Run all quality checks (fmt, lint, test)
 make test-coverage # Generate test coverage report
 make clean        # Clean build artifacts
+
+# Git hooks (recommended)
+make setup-hooks     # Install pre-commit hooks
+make uninstall-hooks # Remove pre-commit hooks
+```
+
+## Git Hooks & Development Workflow
+
+### Pre-commit Hook Setup
+
+自動的なブランチ戦略遵守とコード品質チェックのため、pre-commitフックの使用を推奨します：
+
+```bash
+# フックのセットアップ
+make setup-hooks
+
+# フックの削除
+make uninstall-hooks
+```
+
+### Pre-commit Hook Features
+
+✅ **ブランチ戦略チェック**
+- mainブランチへの直接コミット防止
+- ブランチ命名規則の検証 (feat/, fix/, docs/, etc.)
+
+✅ **コード品質チェック**
+- `make quality` 自動実行 (lint, format, type-check)
+- 品質チェック失敗時のコミット阻止
+
+✅ **セキュリティチェック**
+- API key, password等の機密情報検出
+- 誤コミット防止
+
+### Emergency Bypass
+
+緊急時やfalse positiveの場合：
+```bash
+git commit --no-verify -m "emergency fix"
 ```
 
 ## Architecture & Structure
