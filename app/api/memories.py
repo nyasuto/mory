@@ -219,10 +219,10 @@ async def list_memories(
                 summary = (memory.value[:150] + "...") if len(memory.value) > 150 else memory.value
 
             summary_memory = MemorySummaryResponse(
-                id=memory.id,
-                category=memory.category,
-                key=memory.key,
-                tags=memory.tags_list,
+                id=str(memory.id),
+                category=str(memory.category),
+                key=str(memory.key) if memory.key else None,
+                tags=memory.tags_list or [],
                 summary=summary,
                 created_at=memory.created_at,
                 updated_at=memory.updated_at,

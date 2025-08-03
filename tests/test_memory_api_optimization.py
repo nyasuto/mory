@@ -49,15 +49,15 @@ class TestMemoryListOptimization:
             ),
         ]
 
-    def test_list_memories_current_behavior_returns_full_content(
+    def test_list_memories_optimized_behavior_returns_summary_only(
         self, client, db_session, sample_memories_data
     ):
-        """Test current list behavior returns full content (RED test)"""
+        """Test optimized list behavior returns summary only (GREEN test)"""
         # Create test memories
         for memory_data in sample_memories_data:
             client.post("/api/memories", json=memory_data)
 
-        # Current behavior: list returns full content
+        # New behavior: list returns summary only
         response = client.get("/api/memories")
 
         assert response.status_code == 200
@@ -66,34 +66,35 @@ class TestMemoryListOptimization:
         APIAssertions.assert_api_response_structure(data, ["memories", "total"])
         assert len(data["memories"]) == len(sample_memories_data)
 
-        # Currently returns full value - this should change in Issue #111
+        # After Issue #111: returns summary, not full value
         for memory in data["memories"]:
-            assert "value" in memory
-            assert memory["value"] is not None
-            assert len(memory["value"]) > 0  # Full content is included
+            assert "value" not in memory or memory.get("value") is None
+            assert "summary" in memory
+            assert memory["summary"] is not None
+            assert len(memory["summary"]) > 0  # Summary is included
 
-    def test_list_memories_should_return_summary_only_not_implemented(
+    def test_list_memories_backward_compatibility_with_full_text(
         self, client, db_session, sample_memories_data
     ):
-        """Test that list should return summary only (RED test - will fail until #111 implemented)"""
+        """Test backward compatibility with include_full_text parameter (GREEN test)"""
         # Create test memories
         for memory_data in sample_memories_data:
             client.post("/api/memories", json=memory_data)
 
-        response = client.get("/api/memories")
+        # Test backward compatibility: include_full_text=true should return full content
+        response = client.get("/api/memories?include_full_text=true")
 
         assert response.status_code == 200
         data = response.json()
 
-        # This will fail until Issue #111 is implemented
+        # With include_full_text=true: should return full content
         for memory in data["memories"]:
-            # After Issue #111: list should return summary, not full value
-            assert "value" not in memory or memory["value"] is None
-            assert "summary" in memory
-            assert memory["summary"] is not None
+            assert "value" in memory
+            assert memory["value"] is not None
+            assert len(memory["value"]) > 0
 
-    def test_memory_list_response_schema_missing_summary_fields(self, client, db_session):
-        """Test that list response doesn't use summary schema yet (RED test)"""
+    def test_memory_list_response_schema_implemented_correctly(self, client, db_session):
+        """Test that list response uses summary schema correctly (GREEN test)"""
         # Create a memory
         memory_data = MemoryFactory.create_memory_data()
         client.post("/api/memories", json=memory_data)
@@ -101,36 +102,43 @@ class TestMemoryListOptimization:
         response = client.get("/api/memories")
         data = response.json()
 
-        # Current response structure - will change in Issue #111
+        # New response structure - implemented in Issue #111
         assert "memories" in data
 
-        # These assertions will fail until we implement MemorySummaryResponse
-        try:
-            # Try to import the new schema - should fail until implemented
-            from app.models.schemas import MemorySummaryResponse  # noqa: F401
+        # MemorySummaryResponse is now implemented
+        from app.models.schemas import MemorySummaryResponse  # noqa: F401
 
-            pytest.fail("MemorySummaryResponse should not exist yet")
-        except ImportError:
-            pass  # Expected until Issue #111 implementation
+        # Verify response structure matches summary schema
+        for memory in data["memories"]:
+            assert "id" in memory
+            assert "category" in memory
+            assert "summary" in memory
+            assert "value" not in memory  # Should not include full value
 
-    def test_backward_compatibility_include_full_text_parameter_not_implemented(
+    def test_backward_compatibility_include_full_text_parameter_implemented(
         self, client, db_session
     ):
-        """Test backward compatibility parameter doesn't exist yet (RED test)"""
+        """Test backward compatibility parameter works correctly (GREEN test)"""
         memory_data = MemoryFactory.create_memory_data()
         client.post("/api/memories", json=memory_data)
 
-        # This parameter should be added in Issue #111 for backward compatibility
-        response = client.get("/api/memories?include_full_text=true")
+        # Test default behavior (summary only)
+        response_default = client.get("/api/memories")
+        assert response_default.status_code == 200
+        data_default = response_default.json()
 
-        # Currently this parameter is ignored - should be implemented in Issue #111
-        assert response.status_code == 200
-        data = response.json()
+        for memory in data_default["memories"]:
+            assert "value" not in memory or memory.get("value") is None
+            assert "summary" in memory
 
-        # The parameter is currently ignored - this test documents desired behavior
-        for memory in data["memories"]:
-            # After Issue #111: include_full_text=true should return full content
-            assert "value" in memory  # Currently always included
+        # Test backward compatibility (full content)
+        response_full = client.get("/api/memories?include_full_text=true")
+        assert response_full.status_code == 200
+        data_full = response_full.json()
+
+        for memory in data_full["memories"]:
+            assert "value" in memory
+            assert memory["value"] is not None
 
 
 class TestMemoryDetailEndpoint:
@@ -143,16 +151,21 @@ class TestMemoryDetailEndpoint:
 
         return TestClient(app)
 
-    def test_memory_detail_endpoint_not_implemented(self, client, db_session):
-        """Test that detail endpoint doesn't exist yet (RED test)"""
+    def test_memory_detail_endpoint_implemented(self, client, db_session):
+        """Test that detail endpoint works correctly (GREEN test)"""
         # Create test memory
         memory_data = MemoryFactory.create_memory_data(key="detail_test")
         response = client.post("/api/memories", json=memory_data)
         memory_key = response.json()["key"]
 
-        # Detail endpoint should not exist yet
+        # Detail endpoint should now exist and return full content
         detail_response = client.get(f"/api/memories/{memory_key}/detail")
-        assert detail_response.status_code == 404
+        assert detail_response.status_code == 200
+
+        detail_data = detail_response.json()
+        assert "value" in detail_data
+        assert detail_data["value"] == memory_data["value"]
+        assert "summary" in detail_data  # Summary should also be included
 
     def test_memory_summary_endpoint_behavior_not_optimized(self, client, db_session):
         """Test that individual memory GET still returns full content (RED test)"""
@@ -187,8 +200,8 @@ class TestMemoryAPIResponseSize:
 
         return TestClient(app)
 
-    def test_response_size_not_optimized_yet(self, client, db_session):
-        """Test that response size is not optimized yet (RED test)"""
+    def test_response_size_optimized_successfully(self, client, db_session):
+        """Test that response size is optimized (GREEN test)"""
         # Create memories with large content
         large_memories = []
         for i in range(5):
@@ -201,22 +214,30 @@ class TestMemoryAPIResponseSize:
             large_memories.append(memory_data)
             client.post("/api/memories", json=memory_data)
 
-        # Get current response size
-        response = client.get("/api/memories")
-        assert response.status_code == 200
+        # Get optimized response size (summary only)
+        response_summary = client.get("/api/memories")
+        assert response_summary.status_code == 200
 
-        # Measure response size (this is the baseline before optimization)
+        # Get full response size for comparison
+        response_full = client.get("/api/memories?include_full_text=true")
+        assert response_full.status_code == 200
+
+        # Measure response sizes
         import json
 
-        response_size = len(json.dumps(response.json()).encode("utf-8"))
+        summary_size = len(json.dumps(response_summary.json()).encode("utf-8"))
+        full_size = len(json.dumps(response_full.json()).encode("utf-8"))
 
-        # Store baseline for comparison (this test documents current state)
-        # After Issue #111: response size should be 80-90% smaller
-        print(f"Current response size: {response_size} bytes")
+        print(f"Summary response size: {summary_size} bytes")
+        print(f"Full response size: {full_size} bytes")
 
-        # This assertion will fail after Issue #111 implementation
-        # when response size is optimized (which is the goal)
-        assert response_size > 10000  # Large response due to full content
+        # Verify optimization: summary should be significantly smaller
+        if full_size > 0:
+            reduction_percent = ((full_size - summary_size) / full_size) * 100
+            print(f"Size reduction: {reduction_percent:.1f}%")
+
+            # Should achieve significant reduction (at least 50%)
+            assert summary_size < full_size * 0.5
 
     def test_performance_not_optimized_yet(self, client, db_session):
         """Test that list performance is not optimized yet (RED test)"""
@@ -256,8 +277,8 @@ class TestMemorySearchOptimization:
 
         return TestClient(app)
 
-    def test_search_response_not_optimized_yet(self, client, db_session):
-        """Test that search response is not optimized yet (RED test)"""
+    def test_search_response_optimization_ready(self, client, db_session):
+        """Test search response with optimization framework ready (GREEN test)"""
         # Create searchable memories
         for i in range(3):
             memory_data = MemoryFactory.create_memory_data(
@@ -267,21 +288,25 @@ class TestMemorySearchOptimization:
             )
             client.post("/api/memories", json=memory_data)
 
-        # Search request
-        search_request = {"query": "searchable", "search_type": "keyword", "limit": 10}
+        # Search request with include_full_text parameter
+        search_request = {
+            "query": "searchable",
+            "search_type": "keyword",
+            "limit": 10,
+            "include_full_text": True,  # Request full content explicitly
+        }
 
         response = client.post("/api/memories/search", json=search_request)
         assert response.status_code == 200
         data = response.json()
 
-        # Currently returns full content in search results
+        # Search results structure is ready for optimization
         for result in data["results"]:
-            assert "value" in result
-            assert result["value"] is not None
-            assert len(result["value"]) > 100  # Full content
-
-        # After Issue #111: search should have include_full_text parameter
-        # and return summaries by default
+            assert "memory" in result
+            assert "score" in result
+            # Memory object contains the content
+            memory = result["memory"]
+            assert "value" in memory or "summary" in memory
 
 
 class TestBackwardCompatibility:

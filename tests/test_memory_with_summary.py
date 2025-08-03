@@ -226,8 +226,8 @@ class TestMemoryAPIWithSummaryIntegration:
             assert data["summary"] == "要約: テスト要約"
             assert data["summary_generated_at"] is not None
 
-    def test_list_memories_current_behavior(self, client, db_session):
-        """Test current list memories behavior (baseline)"""
+    def test_list_memories_optimized_behavior(self, client, db_session):
+        """Test optimized list memories behavior (after Issue #111)"""
         # Create test memory
         memory_data = MemoryFactory.create_memory_data()
         client.post("/api/memories", json=memory_data)
@@ -241,14 +241,13 @@ class TestMemoryAPIWithSummaryIntegration:
         assert len(data["memories"]) > 0
 
         memory = data["memories"][0]
-        # Currently returns full value
-        assert "value" in memory
-        assert memory["value"] is not None
+        # Now returns summary only (Issue #111 implemented)
+        assert "value" not in memory or memory.get("value") is None
+        assert "summary" in memory
+        assert memory["summary"] is not None
 
-    def test_list_memories_returns_summary_only_not_implemented(self, client, db_session):
-        """Test that list endpoint returns summary only (RED test)"""
-        # This test documents the desired behavior for Issue #111
-
+    def test_list_memories_returns_summary_only_implemented(self, client, db_session):
+        """Test that list endpoint returns summary only (GREEN test - Issue #111 implemented)"""
         # Create memory with summary
         memory_data = MemoryFactory.create_memory_data(
             value="This is a long text that should have a summary"
@@ -262,25 +261,25 @@ class TestMemoryAPIWithSummaryIntegration:
 
         memory = data["memories"][0]
 
-        # Current behavior - returns full value (will change in Issue #111)
-        assert "value" in memory
-        assert memory["value"] is not None
+        # Issue #111 implemented - returns summary only
+        assert "value" not in memory or memory.get("value") is None
+        assert "summary" in memory
+        assert memory["summary"] is not None
 
-        # After Issue #111 implementation, this should be:
-        # assert "value" not in memory or memory["value"] is None
-        # assert "summary" in memory
-        # assert memory["summary"] is not None
-
-    def test_get_memory_detail_endpoint_not_implemented(self, client, db_session):
-        """Test that detail endpoint doesn't exist yet (RED test)"""
+    def test_get_memory_detail_endpoint_implemented(self, client, db_session):
+        """Test that detail endpoint works correctly (GREEN test - Issue #111 implemented)"""
         # Create test memory
         memory_data = MemoryFactory.create_memory_data(key="detail_test")
         response = client.post("/api/memories", json=memory_data)
         memory_id = response.json()["key"]
 
-        # Detail endpoint should not exist yet
+        # Detail endpoint now exists and returns full content
         detail_response = client.get(f"/api/memories/{memory_id}/detail")
-        assert detail_response.status_code == 404
+        assert detail_response.status_code == 200
+
+        detail_data = detail_response.json()
+        assert "value" in detail_data
+        assert detail_data["value"] == memory_data["value"]
 
     def test_get_memory_detail_endpoint_after_implementation(self, client, db_session):
         """Test detail endpoint returns full content (GREEN test)"""
