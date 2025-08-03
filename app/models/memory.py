@@ -62,14 +62,14 @@ class Memory(Base):
     def tags_list(self) -> list[str]:
         """Get tags as Python list"""
         try:
-            return json.loads(self.tags) if self.tags else []  # type: ignore[arg-type]
+            return json.loads(self.tags) if self.tags else []
         except json.JSONDecodeError:
             return []
 
     @tags_list.setter
     def tags_list(self, value: list[str]):
         """Set tags from Python list"""
-        self.tags = json.dumps(value)  # type: ignore[assignment]
+        self.tags = json.dumps(value)
 
     @property
     def has_embedding(self) -> bool:
