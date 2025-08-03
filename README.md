@@ -27,14 +27,34 @@ MoryはModel Context Protocol (MCP) サーバーで、Claude DesktopやMCP対応
 
 ## 🚀 クイックスタート
 
-### 1. インストール
+### オプション1: Docker（推奨）
+
+```bash
+git clone https://github.com/nyasuto/mory.git
+cd mory
+
+# 環境設定
+cp .env.example .env
+nano .env  # OpenAI API Keyを設定
+
+# 起動
+docker-compose up -d
+
+# 動作確認
+curl http://localhost:8080/api/health
+```
+
+📖 **詳細**: [Docker起動ガイド](./DOCKER.md)
+
+### オプション2: ローカルインストール
+
 ```bash
 git clone https://github.com/nyasuto/mory.git
 cd mory
 make build
 ```
 
-### 2. Claude Desktop設定
+### Claude Desktop設定
 Claude Desktop設定ファイルに追加：
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  

@@ -1,0 +1,42 @@
+services:
+  mory-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      # 永続化ストレージ
+      - mory_data:/app/data
+      # 設定ファイル（オプション）
+      - ./.env:/app/.env:ro
+    environment:
+      # 基本設定
+      - MORY_HOST=0.0.0.0
+      - MORY_PORT=8080
+      - MORY_DEBUG=false
+      - MORY_DATA_DIR=/app/data
+      # OpenAI API Key（必須 - セマンティック検索用）
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # セマンティック検索設定
+      - MORY_SEMANTIC_SEARCH_ENABLED=${MORY_SEMANTIC_SEARCH_ENABLED:-true}
+      - MORY_OPENAI_MODEL=${MORY_OPENAI_MODEL:-text-embedding-3-large}
+      - MORY_HYBRID_SEARCH_WEIGHT=${MORY_HYBRID_SEARCH_WEIGHT:-0.7}
+      # Obsidian統合（オプション）
+      - MORY_OBSIDIAN_VAULT_PATH=${MORY_OBSIDIAN_VAULT_PATH}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mory_data:
+    driver: local
