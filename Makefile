@@ -1,6 +1,6 @@
 # Makefile for Mory Server - FastAPI Implementation
 
-.PHONY: help install dev test lint format type-check quality clean run docker-build docker-run
+.PHONY: help install dev test lint format type-check quality clean run docker-build docker-run setup-hooks uninstall-hooks
 
 # Default target
 .DEFAULT_GOAL := help
@@ -23,6 +23,10 @@ help: ## Show available commands
 	@echo "Docker:"
 	@echo "  docker-build - Build Docker image"
 	@echo "  docker-run   - Run with Docker Compose"
+	@echo ""
+	@echo "Git Hooks:"
+	@echo "  setup-hooks     - Install pre-commit hooks"
+	@echo "  uninstall-hooks - Remove pre-commit hooks"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  clean       - Clean cache and build files"
@@ -93,3 +97,15 @@ docker-stop: ## Stop Docker Compose
 health: ## Check if server is running
 	@echo "Checking server health..."
 	curl -f http://localhost:8080/api/health || echo "Server is not running"
+
+setup-hooks: ## Install pre-commit hooks
+	@echo "Setting up Git hooks..."
+	./scripts/setup-hooks.sh
+
+uninstall-hooks: ## Remove pre-commit hooks
+	@echo "Removing Git hooks..."
+	@if [ -f .git/hooks/pre-commit ]; then \
+		rm .git/hooks/pre-commit && echo "✅ Pre-commit hook removed"; \
+	else \
+		echo "ℹ️  No pre-commit hook found"; \
+	fi
