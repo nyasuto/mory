@@ -223,7 +223,7 @@ async def list_memories(
                 category=str(memory.category),
                 key=str(memory.key) if memory.key else None,
                 tags=memory.tags_list or [],
-                summary=summary,
+                summary=str(summary) if summary else None,
                 created_at=memory.created_at,
                 updated_at=memory.updated_at,
                 has_embedding=False,  # Will be updated when semantic search is implemented
