@@ -79,26 +79,28 @@ class SearchService:
         # Build FTS5 query
         fts_query = self._build_fts5_query(request.query)
 
+        # Build filter conditions and parameters
+        filter_conditions, filter_params = self._build_fts5_filters(request)
+
         # Build the main query
-        query = text("""
+        base_sql = """
             SELECT m.*, fts.rank
             FROM memories m
             JOIN memories_fts fts ON m.id = fts.id
             WHERE memories_fts MATCH :query
-        """)
+        """
 
-        # Add filters
-        filters = self._build_filters(request)
-        if filters:
-            query = text(f"""
-                SELECT m.*, fts.rank
-                FROM memories m
-                JOIN memories_fts fts ON m.id = fts.id
-                WHERE memories_fts MATCH :query AND {filters}
-            """)
+        if filter_conditions:
+            query = text(f"{base_sql} AND {filter_conditions}")
+        else:
+            query = text(base_sql)
+
+        # Prepare parameters
+        params = {"query": fts_query}
+        params.update(filter_params)
 
         # Execute search
-        result = db.execute(query, {"query": fts_query})
+        result = db.execute(query, params)
         rows = result.fetchall()
 
         # Convert to SearchResult objects
@@ -112,7 +114,7 @@ class SearchService:
             results.append(
                 SearchResult(
                     memory=MemoryResponse.model_validate(memory),
-                    score=min(float(row.rank) / 10.0, 1.0),  # Normalize FTS5 rank
+                    score=max(0.1, min(abs(float(row.rank)) / 10.0, 1.0)),  # Normalize FTS5 rank
                     search_type="fts5",
                 )
             )
@@ -278,8 +280,36 @@ class SearchService:
 
         return " ".join(escaped_terms)
 
+    def _build_fts5_filters(self, request: SearchRequest) -> tuple[str, dict]:
+        """Build parameterized WHERE clause filters for FTS5 query"""
+        filters = []
+        params = {}
+
+        if request.category:
+            filters.append("m.category = :category")
+            params["category"] = request.category
+
+        if request.tags:
+            tag_conditions = []
+            for i, tag in enumerate(request.tags):
+                param_name = f"tag_{i}"
+                tag_conditions.append(f"m.tags LIKE :{param_name}")
+                params[param_name] = f'%"{tag}"%'
+            filters.append(f"({' OR '.join(tag_conditions)})")
+
+        if request.date_from:
+            filters.append("m.created_at >= :date_from")
+            params["date_from"] = request.date_from.isoformat()
+
+        if request.date_to:
+            filters.append("m.created_at <= :date_to")
+            params["date_to"] = request.date_to.isoformat()
+
+        filter_sql = " AND ".join(filters) if filters else ""
+        return filter_sql, params
+
     def _build_filters(self, request: SearchRequest) -> str:
-        """Build WHERE clause filters for SQL query"""
+        """Build WHERE clause filters for SQL query (legacy method for non-FTS5)"""
         filters = []
 
         if request.category:
