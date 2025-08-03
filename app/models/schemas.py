@@ -94,10 +94,47 @@ class MemoryResponse(MemoryBase):
     model_config = {"from_attributes": True}
 
 
+# Issue #111: API Optimization - Summary response schemas
+class MemorySummaryResponse(BaseModel):
+    """Optimized response model for memory summaries (list views)"""
+
+    id: str = Field(..., description="Unique memory identifier")
+    category: str = Field(..., description="Memory category")
+    key: str | None = Field(None, description="User-friendly key")
+    tags: list[str] = Field(default_factory=list, description="Tags")
+    summary: str | None = Field(None, description="AI-generated summary or truncated content")
+    created_at: datetime = Field(..., description="Creation timestamp")
+    updated_at: datetime = Field(..., description="Last update timestamp")
+    has_embedding: bool = Field(False, description="Whether memory has semantic embedding")
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def parse_tags(cls, v):
+        """Parse tags from JSON string if needed"""
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        elif isinstance(v, list):
+            return v
+        return []
+
+    model_config = {"from_attributes": True}
+
+
 class MemoryListResponse(BaseModel):
     """Response model for memory lists"""
 
     memories: list[MemoryResponse] = Field(..., description="List of memories")
+    total: int = Field(..., description="Total number of memories")
+    category: str | None = Field(None, description="Filtered category")
+
+
+class MemoryListSummaryResponse(BaseModel):
+    """Optimized response model for memory lists (Issue #111)"""
+
+    memories: list[MemorySummaryResponse] = Field(..., description="List of memory summaries")
     total: int = Field(..., description="Total number of memories")
     category: str | None = Field(None, description="Filtered category")
 
@@ -139,6 +176,10 @@ class SearchRequest(BaseModel):
     limit: int = Field(20, ge=1, le=100, description="Maximum results")
     offset: int = Field(0, ge=0, description="Results offset")
     search_type: str = Field("hybrid", description="Search type: fts5, semantic, or hybrid")
+    # Issue #111: Add include_full_text parameter for optimized search responses
+    include_full_text: bool = Field(
+        False, description="Include full content in results (Issue #111)"
+    )
 
     @field_validator("query")
     @classmethod
@@ -156,10 +197,31 @@ class SearchResult(BaseModel):
     search_type: str = Field(..., description="Type of search that found this result")
 
 
+# Issue #111: Optimized search result with summary
+class SearchResultSummary(BaseModel):
+    """Individual search result with summary only (Issue #111)"""
+
+    memory: MemorySummaryResponse = Field(..., description="Memory summary data")
+    score: float = Field(..., description="Relevance score (0.0-1.0)")
+    search_type: str = Field(..., description="Type of search that found this result")
+
+
 class SearchResponse(BaseModel):
     """Response model for memory search"""
 
     results: list[SearchResult] = Field(..., description="Search results")
+    total: int = Field(..., description="Total number of matches")
+    query: str = Field(..., description="Original search query")
+    search_type: str = Field(..., description="Search type used")
+    execution_time_ms: float = Field(..., description="Search execution time in milliseconds")
+    filters: dict[str, Any] = Field(..., description="Applied filters")
+
+
+# Issue #111: Optimized search response with summaries
+class SearchResponseSummary(BaseModel):
+    """Response model for memory search with summaries only (Issue #111)"""
+
+    results: list[SearchResultSummary] = Field(..., description="Search results with summaries")
     total: int = Field(..., description="Total number of matches")
     query: str = Field(..., description="Original search query")
     search_type: str = Field(..., description="Search type used")

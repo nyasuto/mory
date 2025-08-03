@@ -11,8 +11,10 @@ from ..models.memory import Memory
 from ..models.schemas import (
     MemoryCreate,
     MemoryListResponse,
+    MemoryListSummaryResponse,
     MemoryResponse,
     MemoryStatsResponse,
+    MemorySummaryResponse,
     MemoryUpdate,
     MessageResponse,
     SearchRequest,
@@ -149,14 +151,44 @@ async def get_memory(
     return MemoryResponse.model_validate(memory)  # type: ignore[no-any-return]
 
 
-@router.get("/memories", response_model=MemoryListResponse)
+# Issue #111: New detail endpoint for full content access
+@router.get("/memories/{memory_key}/detail", response_model=MemoryResponse)
+async def get_memory_detail(
+    memory_key: str,
+    category: str | None = Query(None, description="Filter by category"),
+    db: Session = Depends(get_db),
+) -> MemoryResponse:
+    """Get full memory details by key (Issue #111)"""
+    query = db.query(Memory).filter(Memory.key == memory_key)
+
+    if category:
+        query = query.filter(Memory.category == category)
+
+    memory = query.first()
+
+    if not memory:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Memory with key '{memory_key}'"
+            + (f" in category '{category}'" if category else "")
+            + " not found",
+        )
+
+    return MemoryResponse.model_validate(memory)  # type: ignore[no-any-return]
+
+
+# Issue #111: Optimized list endpoint with summary-only responses
+@router.get("/memories")
 async def list_memories(
     category: str | None = Query(None, description="Filter by category"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of memories to return"),
     offset: int = Query(0, ge=0, description="Number of memories to skip"),
+    include_full_text: bool = Query(
+        False, description="Include full content (backward compatibility)"
+    ),
     db: Session = Depends(get_db),
-) -> MemoryListResponse:
-    """List memories with optional filtering"""
+):
+    """List memories with optional filtering and optimized responses (Issue #111)"""
     query = db.query(Memory)
 
     if category:
@@ -168,11 +200,41 @@ async def list_memories(
     # Apply pagination and ordering
     memories = query.order_by(Memory.updated_at.desc()).offset(offset).limit(limit).all()
 
-    return MemoryListResponse(
-        memories=[MemoryResponse.model_validate(memory) for memory in memories],
-        total=total,
-        category=category,
-    )
+    # Return different response based on include_full_text parameter
+    if include_full_text:
+        # Backward compatibility: return full content
+        return MemoryListResponse(
+            memories=[MemoryResponse.model_validate(memory) for memory in memories],
+            total=total,
+            category=category,
+        )
+    else:
+        # Optimized response: summary only
+        summary_memories = []
+        for memory in memories:
+            # Create summary response with truncated or AI-generated summary
+            summary = memory.summary  # type: ignore
+            if not summary:
+                # Create fallback summary if no AI summary exists
+                summary = (memory.value[:150] + "...") if len(memory.value) > 150 else memory.value  # type: ignore
+
+            summary_memory = MemorySummaryResponse(
+                id=str(memory.id),
+                category=str(memory.category),
+                key=str(memory.key) if memory.key else None,
+                tags=memory.tags_list or [],
+                summary=str(summary) if summary else None,
+                created_at=memory.created_at,  # type: ignore
+                updated_at=memory.updated_at,  # type: ignore
+                has_embedding=False,  # Will be updated when semantic search is implemented
+            )
+            summary_memories.append(summary_memory)
+
+        return MemoryListSummaryResponse(
+            memories=summary_memories,
+            total=total,
+            category=category,
+        )
 
 
 @router.delete("/memories/{memory_key}", response_model=MessageResponse)
