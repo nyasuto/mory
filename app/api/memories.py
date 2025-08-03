@@ -36,9 +36,9 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
 
     if existing_memory:
         # Update existing memory
-        existing_memory.value = memory_data.value
+        existing_memory.value = memory_data.value  # type: ignore[assignment]
         existing_memory.tags_list = memory_data.tags
-        existing_memory.updated_at = datetime.utcnow()
+        existing_memory.updated_at = datetime.utcnow()  # type: ignore[assignment]
         db.commit()
         db.refresh(existing_memory)
         return MemoryResponse.model_validate(existing_memory)  # type: ignore[no-any-return]
@@ -66,8 +66,8 @@ async def get_memory_stats(db: Session = Depends(get_db)) -> MemoryStatsResponse
     total_categories = db.query(func.count(func.distinct(Memory.category))).scalar()
 
     # Category breakdown
-    category_counts = dict(
-        db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()
+    category_counts: dict[str, int] = dict(
+        db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()  # type: ignore[arg-type]
     )
 
     # Recent memories (last 24 hours)
@@ -215,7 +215,7 @@ async def update_memory(
         else:
             setattr(memory, field, value)
 
-    memory.updated_at = datetime.utcnow()
+    memory.updated_at = datetime.utcnow()  # type: ignore[assignment]
     db.commit()
     db.refresh(memory)
 

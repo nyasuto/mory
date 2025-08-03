@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..core.config import settings
@@ -30,7 +31,7 @@ async def detailed_health_check(db: Session = Depends(get_db)) -> dict[str, Any]
     """Detailed health check with system information"""
     # Test database connection
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
