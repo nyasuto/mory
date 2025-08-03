@@ -82,6 +82,7 @@ line-ending = "auto"
 
 [tool.mypy]
 python_version = "3.11"
+# plugins = ["sqlalchemy.ext.mypy.plugin"]  # Not available in current setup
 warn_return_any = false
 warn_unused_configs = false
 disallow_untyped_defs = false
