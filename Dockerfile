@@ -3,7 +3,11 @@ FROM python:3.13-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    MORY_HOST=0.0.0.0 \
+    MORY_PORT=8080 \
+    MORY_DEBUG=false \
+    MORY_DATA_DIR=/app/data
 
 # Set work directory
 WORKDIR /app
