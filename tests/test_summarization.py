@@ -146,11 +146,15 @@ class TestSummarizationService:
 class TestSummarizationServiceIntegration:
     """Integration tests for summarization service (will be implemented after service creation)"""
 
-    def test_service_not_implemented_yet(self):
-        """Placeholder test - service implementation will follow TDD approach"""
-        # This test will fail until we implement the actual SummarizationService
-        with pytest.raises(ImportError):
-            pass
+    def test_service_implemented(self):
+        """Test that SummarizationService is implemented (Issue #110 completed)"""
+        # SummarizationService should be importable now that Issue #110 is implemented
+        from app.services.summarization import SummarizationService
+
+        service = SummarizationService()
+        assert service is not None
+        assert hasattr(service, "generate_summary")
+        assert hasattr(service, "enabled")
 
     @pytest.mark.asyncio
     async def test_real_service_japanese_summary(self):
@@ -174,25 +178,35 @@ class TestSummarizationServiceIntegration:
 class TestMemoryWithSummarySchema:
     """Test memory schema extensions for summary support"""
 
-    def test_memory_model_summary_fields_not_implemented(self):
-        """Test that summary fields are not yet in Memory model"""
+    def test_memory_model_summary_fields_implemented(self):
+        """Test that summary fields are in Memory model (Issue #109 implemented)"""
+        from datetime import datetime
+
         from app.models.memory import Memory
 
-        # Create memory instance
-        memory = Memory(category="test", key="test_key", value="test value", tags_list=["test"])
+        # Create memory instance with proper datetime fields
+        now = datetime.utcnow()
+        memory = Memory(
+            category="test",
+            key="test_key",
+            value="test value",
+            tags_list=["test"],
+            created_at=now,
+            updated_at=now,
+        )
 
-        # These attributes should not exist yet (will fail until we implement #109)
-        assert not hasattr(memory, "summary")
-        assert not hasattr(memory, "summary_generated_at")
+        # These attributes should exist now that Issue #109 is implemented
+        assert hasattr(memory, "summary")
+        assert hasattr(memory, "summary_generated_at")
 
-    def test_memory_response_schema_summary_fields_not_implemented(self):
-        """Test that summary fields are not yet in MemoryResponse schema"""
+    def test_memory_response_schema_summary_fields_implemented(self):
+        """Test that summary fields are in MemoryResponse schema (Issue #109 implemented)"""
         from app.models.schemas import MemoryResponse
 
-        # Check that summary fields are not in the schema yet
+        # Check that summary fields are in the schema now that Issue #109 is implemented
         field_names = set(MemoryResponse.model_fields.keys())
-        assert "summary" not in field_names
-        assert "summary_generated_at" not in field_names
+        assert "summary" in field_names
+        assert "summary_generated_at" in field_names
 
 
 class TestMemoryAPIWithSummary:
@@ -217,6 +231,11 @@ class TestMemoryAPIWithSummary:
 @pytest.mark.performance
 class TestSummarizationPerformance:
     """Performance tests for summarization"""
+
+    @pytest.fixture
+    def mock_openai_service(self):
+        """Create mock OpenAI service for performance tests"""
+        return MockOpenAIService()
 
     @pytest.mark.asyncio
     async def test_summary_generation_performance(self, mock_openai_service):

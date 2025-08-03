@@ -45,8 +45,8 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
         if summarization_service.enabled:
             try:
                 summary = await summarization_service.generate_summary(memory_data.value)
-                existing_memory.summary = summary
-                existing_memory.summary_generated_at = datetime.utcnow()
+                existing_memory.summary = summary  # type: ignore[assignment]
+                existing_memory.summary_generated_at = datetime.utcnow()  # type: ignore[assignment]
             except Exception as e:
                 print(f"Summary generation failed: {e}")
 
@@ -66,8 +66,8 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
     if summarization_service.enabled:
         try:
             summary = await summarization_service.generate_summary(memory_data.value)
-            new_memory.summary = summary
-            new_memory.summary_generated_at = datetime.utcnow()
+            new_memory.summary = summary  # type: ignore[assignment]
+            new_memory.summary_generated_at = datetime.utcnow()  # type: ignore[assignment]
         except Exception as e:
             # If summary generation fails, continue without summary
             print(f"Summary generation failed: {e}")

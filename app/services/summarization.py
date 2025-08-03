@@ -160,7 +160,8 @@ Summary:""",
                 temperature=0.3,  # Lower temperature for consistent summaries
             )
 
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            return content.strip() if content else ""
 
         except Exception as e:
             raise Exception(f"OpenAI API call failed: {str(e)}") from e

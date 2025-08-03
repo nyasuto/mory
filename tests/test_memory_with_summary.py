@@ -14,10 +14,20 @@ class TestMemoryModelWithSummary:
 
     def test_memory_model_basic_fields_exist(self):
         """Test that basic Memory model fields exist (baseline)"""
+        from datetime import datetime
+
         from app.models.memory import Memory
 
         # This should pass with current implementation
-        memory = Memory(category="test", key="test_key", value="test value", tags_list=["test"])
+        now = datetime.utcnow()
+        memory = Memory(
+            category="test",
+            key="test_key",
+            value="test value",
+            tags_list=["test"],
+            created_at=now,
+            updated_at=now,
+        )
 
         assert memory.category == "test"
         assert memory.key == "test_key"
@@ -26,15 +36,15 @@ class TestMemoryModelWithSummary:
         assert memory.created_at is not None
         assert memory.updated_at is not None
 
-    def test_memory_model_summary_field_missing(self):
-        """Test that summary field doesn't exist yet (RED test)"""
+    def test_memory_model_summary_field_exists(self):
+        """Test that summary field exists (GREEN test - Issue #109 implemented)"""
         from app.models.memory import Memory
 
         memory = Memory(category="test", key="test_key", value="test value")
 
-        # These should fail until we implement Issue #109
-        assert not hasattr(memory, "summary")
-        assert not hasattr(memory, "summary_generated_at")
+        # These should pass now that Issue #109 is implemented
+        assert hasattr(memory, "summary")
+        assert hasattr(memory, "summary_generated_at")
 
     def test_memory_model_summary_field_after_implementation(self):
         """Test that summary field exists after implementation (GREEN test - will pass after #109)"""
@@ -93,15 +103,15 @@ class TestMemoryResponseSchemaWithSummary:
         for field in expected_current_fields:
             assert field in field_names, f"Expected field '{field}' not found"
 
-    def test_memory_response_summary_fields_missing(self):
-        """Test that summary fields don't exist yet (RED test)"""
+    def test_memory_response_summary_fields_exist(self):
+        """Test that summary fields exist (GREEN test - Issue #109 implemented)"""
         from app.models.schemas import MemoryResponse
 
         field_names = set(MemoryResponse.model_fields.keys())
 
-        # These should fail until we implement Issue #109
-        assert "summary" not in field_names
-        assert "summary_generated_at" not in field_names
+        # These should pass now that Issue #109 is implemented
+        assert "summary" in field_names
+        assert "summary_generated_at" in field_names
 
     def test_memory_response_summary_fields_after_implementation(self):
         """Test summary fields in MemoryResponse after implementation (GREEN test)"""
@@ -153,10 +163,10 @@ class TestMemoryAPIWithSummaryIntegration:
 
         return TestClient(app)
 
-    def test_create_memory_current_behavior(self, client, db_session):
-        """Test current memory creation behavior (baseline)"""
+    def test_create_memory_with_summary_generation(self, client, db_session):
+        """Test memory creation with summary generation (Issue #110 implemented)"""
         memory_data = MemoryFactory.create_memory_data(
-            category="test", key="baseline_test", value="This is a baseline test"
+            category="test", key="summary_test", value="This is a test for summary generation."
         )
 
         response = client.post("/api/memories", json=memory_data)
@@ -166,16 +176,17 @@ class TestMemoryAPIWithSummaryIntegration:
 
         MemoryAssertions.assert_memory_response(data, memory_data)
 
-        # Summary fields should not exist yet
-        assert "summary" not in data or data["summary"] is None
-        assert "summary_generated_at" not in data or data["summary_generated_at"] is None
+        # Summary fields should exist now that Issue #110 is implemented
+        assert "summary" in data
+        assert data["summary"] is not None
+        assert "summary_generated_at" in data
+        assert data["summary_generated_at"] is not None
 
-    def test_create_memory_generates_summary_not_implemented(self, client, db_session):
-        """Test that creating memory generates summary (RED test)"""
-        # This test will fail until we implement Issue #110
+    def test_create_memory_generates_japanese_summary(self, client, db_session):
+        """Test that creating memory generates Japanese summary (Issue #110 implemented)"""
         memory_data = MemoryFactory.create_memory_data(
             category="test",
-            key="summary_test",
+            key="japanese_summary_test",
             value="This is a longer text that should be summarized automatically when created.",
         )
 
@@ -184,11 +195,12 @@ class TestMemoryAPIWithSummaryIntegration:
         assert response.status_code == 201
         data = response.json()
 
-        # This assertion will fail until Issue #110 is implemented
-        assert "summary" not in data or data["summary"] is None
-        # After implementation, this should be:
-        # assert data["summary"] is not None
-        # assert "要約:" in data["summary"] or len(data["summary"]) > 0
+        # Issue #110 is implemented - summary should be generated
+        assert "summary" in data
+        assert data["summary"] is not None
+        assert "要約:" in data["summary"]  # Japanese prefix should be present
+        assert "summary_generated_at" in data
+        assert data["summary_generated_at"] is not None
 
     def test_create_memory_generates_summary_after_implementation(self, client, db_session):
         """Test memory creation with summary generation (GREEN test)"""
@@ -293,17 +305,23 @@ class TestMemoryAPIWithSummaryIntegration:
 class TestMemoryAPISummaryConfiguration:
     """Test memory API configuration for summary functionality"""
 
-    def test_summary_configuration_not_implemented(self):
-        """Test that summary configuration doesn't exist yet (RED test)"""
+    def test_summary_configuration_implemented(self):
+        """Test that summary configuration exists (Issue #110 implemented)"""
         from app.core.config import Settings
 
         settings = Settings()
 
-        # These configuration options should not exist yet
-        assert not hasattr(settings, "summary_enabled")
-        assert not hasattr(settings, "summary_model")
-        assert not hasattr(settings, "summary_max_length")
-        assert not hasattr(settings, "summary_fallback_enabled")
+        # These configuration options should exist now that Issue #110 is implemented
+        assert hasattr(settings, "summary_enabled")
+        assert hasattr(settings, "summary_model")
+        assert hasattr(settings, "summary_max_length")
+        assert hasattr(settings, "summary_fallback_enabled")
+
+        # Test default values
+        assert settings.summary_enabled is True
+        assert settings.summary_model == "gpt-4-turbo"
+        assert settings.summary_max_length == 200
+        assert settings.summary_fallback_enabled is True
 
     def test_summary_configuration_after_implementation(self):
         """Test summary configuration after implementation (GREEN test)"""
