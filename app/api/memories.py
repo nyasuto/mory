@@ -224,8 +224,8 @@ async def list_memories(
                 key=str(memory.key) if memory.key else None,
                 tags=memory.tags_list or [],
                 summary=str(summary) if summary else None,
-                created_at=memory.created_at,
-                updated_at=memory.updated_at,
+                created_at=memory.created_at,  # type: ignore
+                updated_at=memory.updated_at,  # type: ignore
                 has_embedding=False,  # Will be updated when semantic search is implemented
             )
             summary_memories.append(summary_memory)
