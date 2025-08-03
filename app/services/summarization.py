@@ -114,15 +114,15 @@ class SummarizationService:
 
         for memory in memories:
             try:
-                summary = await self.generate_summary(memory.value)
-                results[memory.id] = summary
+                summary = await self.generate_summary(str(memory.value))
+                results[str(memory.id)] = summary
 
                 # Rate limiting delay
                 if delay_ms > 0:
                     await asyncio.sleep(delay_ms / 1000.0)
 
             except Exception as e:
-                results[memory.id] = f"Error: {str(e)}"
+                results[str(memory.id)] = f"Error: {str(e)}"
 
         return results
 
