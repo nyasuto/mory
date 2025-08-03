@@ -6,8 +6,8 @@ import json
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, Index, LargeBinary, String, Text
-from sqlalchemy.orm import validates
+from sqlalchemy import DateTime, Index, LargeBinary, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from ..core.database import Base
 
@@ -18,23 +18,31 @@ class Memory(Base):
     __tablename__ = "memories"
 
     # Core fields
-    id = Column(String, primary_key=True, default=lambda: f"mem_{uuid4().hex[:8]}")
-    category = Column(String, nullable=False, index=True)
-    key = Column(String, nullable=True, index=True)  # User-friendly alias
-    value = Column(Text, nullable=False)
-    tags = Column(Text, default="[]")  # JSON serialized list
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: f"mem_{uuid4().hex[:8]}"
+    )
+    category: Mapped[str] = mapped_column(String, index=True)
+    key: Mapped[str | None] = mapped_column(String, index=True)  # User-friendly alias
+    value: Mapped[str] = mapped_column(Text)
+    tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON serialized list
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # Summary fields (Issue #109)
-    summary = Column(Text, nullable=True)  # AI-generated summary
-    summary_generated_at = Column(DateTime, nullable=True)  # Summary generation timestamp
+    summary: Mapped[str | None] = mapped_column(Text)  # AI-generated summary
+    summary_generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime
+    )  # Summary generation timestamp
 
     # Semantic search fields
-    embedding = Column(LargeBinary, nullable=True)  # Vector embedding
-    embedding_hash = Column(String, nullable=True, index=True)  # Content hash for embedding
+    embedding: Mapped[bytes | None] = mapped_column(LargeBinary)  # Vector embedding
+    embedding_hash: Mapped[str | None] = mapped_column(
+        String, index=True
+    )  # Content hash for embedding
 
     # Database indexes
     __table_args__ = (
