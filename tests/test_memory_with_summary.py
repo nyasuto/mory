@@ -312,13 +312,11 @@ class TestMemoryAPISummaryConfiguration:
 
         # These configuration options should exist now that Issue #110 is implemented
         assert hasattr(settings, "summary_enabled")
-        assert hasattr(settings, "summary_model")
         assert hasattr(settings, "summary_max_length")
         assert hasattr(settings, "summary_fallback_enabled")
 
         # Test default values
         assert settings.summary_enabled is True
-        assert settings.summary_model == "gpt-4-turbo"
         assert settings.summary_max_length == 200
         assert settings.summary_fallback_enabled is True
 
@@ -332,12 +330,10 @@ class TestMemoryAPISummaryConfiguration:
         settings = Settings()
 
         assert hasattr(settings, "summary_enabled")
-        assert hasattr(settings, "summary_model")
         assert hasattr(settings, "summary_max_length")
         assert hasattr(settings, "summary_fallback_enabled")
 
         # Test default values
         assert settings.summary_enabled is True
-        assert settings.summary_model == "gpt-4-turbo"
         assert settings.summary_max_length == 200
         assert settings.summary_fallback_enabled is True

@@ -68,6 +68,10 @@ def create_tables(engine_override=None):
 
 def check_fts5_support(engine_override=None) -> bool:
     """Check if SQLite FTS5 extension is available"""
+    # Temporarily disable FTS5 to use optimized LIKE search
+    # TODO: Enable FTS5 when SQLite build supports it
+    return False
+
     db_engine = engine_override if engine_override else engine
     try:
         with db_engine.connect() as conn:
