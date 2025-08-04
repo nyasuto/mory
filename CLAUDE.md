@@ -2,6 +2,15 @@
 
 Mory - FastAPI-based MCP server for Claude Desktop personal memory functionality.
 
+## 🔧 Development Tools
+
+**必須: Serena MCPツールの使用**
+
+このプロジェクトではSerenaのMCPツールを優先的に使用してください:
+- **シンボル検索・参照**: `find_symbol`, `find_referencing_symbols`
+- **コード編集・置換**: `replace_symbol_body`, `insert_after_symbol`
+- **プロジェクト把握**: `get_symbols_overview`, `list_dir`
+
 ## Quick Commands
 
 ```bash
