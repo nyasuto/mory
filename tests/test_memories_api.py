@@ -25,7 +25,7 @@ class TestCreateMemory:
         assert "id" in data
         assert "created_at" in data
         assert "updated_at" in data
-        assert data["has_embedding"] is False
+        assert data["has_embedding"] is True  # Auto-embedding generation enabled
         # AI-generated fields should be present but may be None initially
         assert "tags" in data  # AI-generated comprehensive tags
         assert "summary" in data  # AI-generated summary
