@@ -138,7 +138,7 @@ async def get_memory_detail(
 # Issue #111: Optimized list endpoint - simplified AI-driven schema (Issue #112)
 @router.get("/memories")
 async def list_memories(
-    limit: int = Query(10, ge=1, le=50, description="Maximum number of memories to return"),
+    limit: int = Query(100, ge=1, le=300, description="Maximum number of memories to return"),
     offset: int = Query(0, ge=0, description="Number of memories to skip"),
     include_full_text: bool = Query(
         False, description="Include full content (backward compatibility)"
