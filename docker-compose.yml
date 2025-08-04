@@ -6,24 +6,24 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # 永続化ストレージ
-      - mory_data:/app/data
-      # 設定ファイル（オプション）
-      - ./.env:/app/.env:ro
+      # Development-friendly: Direct file access and live reload
+      - ./app:/app/app
+      - ./data:/app/data
+      # Optional: Mount Obsidian vault for testing
+      - ${HOME}/Documents/Obsidian:/obsidian:ro
     environment:
-      # 基本設定
+      # Development optimized settings
+      - MORY_DEBUG=${MORY_DEBUG:-true}
       - MORY_HOST=0.0.0.0
       - MORY_PORT=8080
-      - MORY_DEBUG=false
       - MORY_DATA_DIR=/app/data
-      # OpenAI API Key（必須 - セマンティック検索用）
+      - MORY_OBSIDIAN_VAULT_PATH=/obsidian
+      # OpenAI API Key (required for semantic search)
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      # セマンティック検索設定
+      # Semantic search settings
       - MORY_SEMANTIC_SEARCH_ENABLED=${MORY_SEMANTIC_SEARCH_ENABLED:-true}
       - MORY_OPENAI_MODEL=${MORY_OPENAI_MODEL:-text-embedding-3-large}
       - MORY_HYBRID_SEARCH_WEIGHT=${MORY_HYBRID_SEARCH_WEIGHT:-0.7}
-      # Obsidian統合（オプション）
-      - MORY_OBSIDIAN_VAULT_PATH=${MORY_OBSIDIAN_VAULT_PATH}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/api/health', timeout=5)"]
@@ -37,6 +37,15 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  mory_data:
-    driver: local
+  # SQLite Web UI for database inspection and debugging
+  sqlite-web:
+    image: coleifer/sqlite-web
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data:/data
+    command: ["sqlite_web", "/data/memories.db", "--host", "0.0.0.0", "--port", "8080"]
+    depends_on:
+      - mory-server
+    profiles:
+      - debug
