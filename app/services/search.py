@@ -229,8 +229,7 @@ class SearchService:
             like_conditions.append(
                 or_(
                     Memory.value.ilike(like_pattern),
-                    Memory.category.ilike(like_pattern),
-                    Memory.key.ilike(like_pattern),
+                    Memory.summary.ilike(like_pattern),
                     Memory.tags.ilike(like_pattern),
                 )
             )

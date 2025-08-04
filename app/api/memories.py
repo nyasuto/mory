@@ -138,7 +138,7 @@ async def get_memory_detail(
 # Issue #111: Optimized list endpoint - simplified AI-driven schema (Issue #112)
 @router.get("/memories")
 async def list_memories(
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of memories to return"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of memories to return"),
     offset: int = Query(0, ge=0, description="Number of memories to skip"),
     include_full_text: bool = Query(
         False, description="Include full content (backward compatibility)"
@@ -168,8 +168,8 @@ async def list_memories(
             # Create summary response with AI-generated summary or fallback
             summary = memory.summary
             if not summary:
-                # Create fallback summary if no AI summary exists
-                summary = (memory.value[:150] + "...") if len(memory.value) > 150 else memory.value
+                # Create very short fallback summary to prevent context overflow
+                summary = (memory.value[:50] + "...") if len(memory.value) > 50 else memory.value
 
             summary_memory = MemorySummaryResponse(
                 id=str(memory.id),
