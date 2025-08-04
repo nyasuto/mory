@@ -26,10 +26,10 @@ class MockOpenAIService:
 
         # Generate deterministic summary based on text
         if len(text) <= max_length:
-            return f"要約: {text}"
+            return text
 
         # Create a meaningful summary for testing
-        summary = f"要約: {text[: max_length - 20]}..."
+        summary = f"{text[: max_length - 10]}..."
         return summary
 
     async def generate_embedding(self, text: str) -> list[float]:

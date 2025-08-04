@@ -30,7 +30,7 @@ class TestSummarizationService:
 
         # Assert
         assert summary is not None
-        assert "要約:" in summary
+        assert len(summary) > 0
         assert text in summary  # Short text should be included
         SummaryAssertions.assert_summary_quality(summary, text)
 
@@ -45,7 +45,7 @@ class TestSummarizationService:
 
         # Assert
         assert summary is not None
-        assert "要約:" in summary
+        assert len(summary) > 0
         assert len(summary) < len(long_text)
         assert len(summary) <= 200  # Default max length
         SummaryAssertions.assert_summary_quality(summary, long_text)

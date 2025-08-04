@@ -46,10 +46,9 @@ class SummarizationService:
 
         max_len = max_length or self.max_length
 
-        # If text is already short enough, return with prefix
+        # If text is already short enough, return as-is
         if len(text) <= max_len:
-            prefix = "要約: " if language == "ja" else "Summary: "
-            return f"{prefix}{text}"
+            return text
 
         try:
             self.call_count += 1
@@ -131,14 +130,14 @@ class SummarizationService:
         prompts = {
             "ja": f"""以下のテキストを{max_length}文字程度で要約してください。
 重要なポイントを押さえ、簡潔で分かりやすい日本語で表現してください。
-要約は「要約: 」で始めてください。
+プレフィックスは付けず、要約内容のみを返してください。
 
 テキスト: {text}
 
 要約:""",
             "en": f"""Please summarize the following text in approximately {max_length} characters.
 Focus on key points and express in clear, concise English.
-Start the summary with "Summary: ".
+Do not include any prefix, return only the summary content.
 
 Text: {text}
 
@@ -178,10 +177,15 @@ Summary:""",
         if len(summary) > max_length:
             summary = summary[: max_length - 3] + "..."
 
-        # Ensure Japanese summaries have proper prefix
-        if "要約:" not in summary and any(ord(c) > 127 for c in summary):
-            if not summary.startswith("要約: "):
-                summary = f"要約: {summary}"
+        # Clean up any remaining prefixes from API response
+        if summary.startswith("要約: "):
+            summary = summary[3:].strip()
+        elif summary.startswith("要約:"):
+            summary = summary[3:].strip()
+        elif summary.startswith("Summary: "):
+            summary = summary[9:].strip()
+        elif summary.startswith("Summary:"):
+            summary = summary[8:].strip()
 
         return summary
 
@@ -192,8 +196,7 @@ Summary:""",
         max_len = max_length or self.max_length
 
         if len(text) <= max_len:
-            prefix = "要約: " if language == "ja" else "Summary: "
-            return f"{prefix}{text}"
+            return text
 
         # Simple truncation with ellipsis
         truncated = text[: max_len - 10]
@@ -204,8 +207,7 @@ Summary:""",
             if last_space > max_len * 0.8:  # Only if we don't lose too much
                 truncated = truncated[:last_space]
 
-        prefix = "要約: " if language == "ja" else "Summary: "
-        return f"{prefix}{truncated}..."
+        return f"{truncated}..."
 
     def get_stats(self) -> dict[str, Any]:
         """Get service statistics"""
