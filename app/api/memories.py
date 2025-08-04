@@ -19,6 +19,7 @@ from ..models.schemas import (
     SearchRequest,
     SearchResponse,
 )
+from ..services.embedding import embedding_service
 from ..services.summarization import summarization_service
 
 router = APIRouter()
@@ -41,10 +42,31 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
 
             # Generate comprehensive AI tags based on content
             # TODO: Implement AI tag generation service
-            # For now, use simple keyword extraction as placeholder
-            words = memory_data.value.lower().split()
-            important_words = [word for word in words if len(word) > 3 and word.isalpha()]
-            ai_tags = list(set(important_words[:5]))  # Take up to 5 unique words as tags
+            # For now, use improved keyword extraction supporting Japanese
+            import re
+
+            # Extract meaningful words (both English and Japanese)
+            text = memory_data.value.lower()
+            # Remove common markup and symbols
+            text = re.sub(r'[#\*`\-_=+(){}\\[\]|<>"\';:.?,!]', " ", text)
+
+            words = text.split()
+            important_words = []
+
+            for word in words:
+                # Include words with 2+ characters (for Japanese) or 3+ English letters
+                if len(word) >= 2 and (
+                    word.isalpha()
+                    or any(
+                        "\u3040" <= c <= "\u309f"
+                        or "\u30a0" <= c <= "\u30ff"
+                        or "\u4e00" <= c <= "\u9faf"
+                        for c in word
+                    )
+                ):
+                    important_words.append(word)
+
+            ai_tags = list(set(important_words[:8]))  # Take up to 8 unique words as tags
             new_memory.tags_list = ai_tags
 
             new_memory.ai_processed_at = datetime.utcnow()
@@ -56,6 +78,17 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
     db.add(new_memory)
     db.commit()
     db.refresh(new_memory)
+
+    # Generate vector embedding automatically (Issue #112 enhancement)
+    if embedding_service.enabled:
+        try:
+            embedding_generated = await embedding_service.generate_embedding_for_memory(new_memory)
+            if embedding_generated:
+                db.commit()
+                db.refresh(new_memory)
+        except Exception as e:
+            print(f"Embedding generation failed: {e}")
+            # Continue without embedding if it fails
 
     return MemoryResponse.model_validate(new_memory)
 
@@ -237,15 +270,40 @@ async def update_memory(
                 summary = await summarization_service.generate_summary(memory.value)
                 memory.summary = summary
 
-                # Regenerate comprehensive AI tags
-                words = memory.value.lower().split()
-                important_words = [word for word in words if len(word) > 3 and word.isalpha()]
-                ai_tags = list(set(important_words[:5]))  # Take up to 5 unique words as tags
+                # Regenerate comprehensive AI tags with improved Japanese support
+                import re
+
+                text = memory.value.lower()
+                text = re.sub(r'[#\*`\-_=+(){}\\[\]|<>"\';:.?,!]', " ", text)
+
+                words = text.split()
+                important_words = []
+
+                for word in words:
+                    if len(word) >= 2 and (
+                        word.isalpha()
+                        or any(
+                            "\u3040" <= c <= "\u309f"
+                            or "\u30a0" <= c <= "\u30ff"
+                            or "\u4e00" <= c <= "\u9faf"
+                            for c in word
+                        )
+                    ):
+                        important_words.append(word)
+
+                ai_tags = list(set(important_words[:8]))
                 memory.tags_list = ai_tags
 
                 memory.ai_processed_at = datetime.utcnow()
             except Exception as e:
                 print(f"AI re-processing failed: {e}")
+
+        # Regenerate vector embedding when content changes
+        if embedding_service.enabled:
+            try:
+                await embedding_service.generate_embedding_for_memory(memory)
+            except Exception as e:
+                print(f"Embedding regeneration failed: {e}")
 
         memory.updated_at = datetime.utcnow()
         db.commit()
