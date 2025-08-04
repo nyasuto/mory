@@ -5,6 +5,7 @@ Personal Memory Server with REST API
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api.dashboard import router as dashboard_router
 from .api.health import router as health_router
 from .api.memories import router as memories_router
 from .core.config import settings
@@ -31,6 +32,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(memories_router, prefix="/api", tags=["memories"])
+app.include_router(dashboard_router, tags=["dashboard"])
 
 
 @app.on_event("startup")
