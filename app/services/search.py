@@ -229,8 +229,7 @@ class SearchService:
             like_conditions.append(
                 or_(
                     Memory.value.ilike(like_pattern),
-                    Memory.category.ilike(like_pattern),
-                    Memory.key.ilike(like_pattern),
+                    Memory.summary.ilike(like_pattern),
                     Memory.tags.ilike(like_pattern),
                 )
             )
@@ -350,7 +349,7 @@ class SearchService:
 
     def _calculate_like_score(self, memory: Memory, search_terms: list[str]) -> float:
         """Calculate relevance score for LIKE search"""
-        content = f"{memory.value} {memory.category} {memory.key or ''} {memory.tags}"
+        content = f"{memory.value} {memory.summary or ''} {memory.tags}"
         content_lower = content.lower()
 
         score = 0.0
