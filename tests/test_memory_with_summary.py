@@ -318,7 +318,7 @@ class TestMemoryAPISummaryConfiguration:
 
         # Test default values
         assert settings.summary_enabled is True
-        assert settings.summary_model == "gpt-4-turbo"
+        assert settings.summary_model == "gpt-4o"
         assert settings.summary_max_length == 200
         assert settings.summary_fallback_enabled is True
 
@@ -338,6 +338,6 @@ class TestMemoryAPISummaryConfiguration:
 
         # Test default values
         assert settings.summary_enabled is True
-        assert settings.summary_model == "gpt-4-turbo"
+        assert settings.summary_model == "gpt-4o"
         assert settings.summary_max_length == 200
         assert settings.summary_fallback_enabled is True
