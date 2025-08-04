@@ -36,7 +36,6 @@ class Memory(Base):
 
     # 🔍 Search optimization (single embedding from summary)
     embedding: Mapped[bytes | None] = mapped_column(LargeBinary)  # Summary-based vector
-    embedding_hash: Mapped[str | None] = mapped_column(String, index=True)
     embedding_model: Mapped[str | None] = mapped_column(String)  # Model used for embedding
 
     # Simplified indexes
@@ -44,7 +43,6 @@ class Memory(Base):
         Index("idx_updated_at", "updated_at"),
         Index("idx_ai_processed", "ai_processed_at"),
         Index("idx_tags_search", "tags"),
-        Index("idx_embedding_hash", "embedding_hash"),
     )
 
     @validates("tags")
