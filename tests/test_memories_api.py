@@ -5,12 +5,9 @@ import pytest
 
 @pytest.fixture
 def sample_memory_data():
-    """Sample memory data for testing"""
+    """Sample memory data for testing - simplified AI-driven schema (Issue #112)"""
     return {
-        "category": "test_category",
-        "key": "test_key",
         "value": "This is a test memory",
-        "tags": ["test", "api", "memory"],
     }
 
 
@@ -18,106 +15,105 @@ class TestCreateMemory:
     """Tests for POST /api/memories"""
 
     def test_create_memory_success(self, client, db_session, sample_memory_data):
-        """Test successful memory creation"""
+        """Test successful memory creation - simplified AI-driven schema (Issue #112)"""
         response = client.post("/api/memories", json=sample_memory_data)
 
         assert response.status_code == 201
         data = response.json()
 
-        assert data["category"] == sample_memory_data["category"]
-        assert data["key"] == sample_memory_data["key"]
         assert data["value"] == sample_memory_data["value"]
-        assert data["tags"] == sample_memory_data["tags"]
         assert "id" in data
         assert "created_at" in data
         assert "updated_at" in data
         assert data["has_embedding"] is False
+        # AI-generated fields should be present but may be None initially
+        assert "tags" in data  # AI-generated comprehensive tags
+        assert "summary" in data  # AI-generated summary
+        assert "processing_status" in data  # AI processing status
 
-    def test_create_memory_without_key(self, client, db_session):
-        """Test creating memory without key"""
-        memory_data = {"category": "test_category", "value": "Memory without key", "tags": ["test"]}
+    def test_create_memory_minimal_input(self, client, db_session):
+        """Test creating memory with minimal input - simplified AI-driven schema (Issue #112)"""
+        memory_data = {"value": "Memory with minimal input"}
 
         response = client.post("/api/memories", json=memory_data)
 
         assert response.status_code == 201
         data = response.json()
-        assert data["key"] is None
         assert data["value"] == memory_data["value"]
+        assert "id" in data
+        assert "tags" in data  # AI will generate tags
+        assert "summary" in data  # AI will generate summary
 
-    def test_create_memory_duplicate_key_updates(self, client, db_session, sample_memory_data):
-        """Test that duplicate key updates existing memory"""
+    def test_create_memory_creates_new_each_time(self, client, db_session, sample_memory_data):
+        """Test that each memory creation creates a new memory - simplified AI-driven schema (Issue #112)"""
         # Create first memory
         response1 = client.post("/api/memories", json=sample_memory_data)
         assert response1.status_code == 201
         first_id = response1.json()["id"]
 
-        # Create second memory with same key/category
-        updated_data = sample_memory_data.copy()
-        updated_data["value"] = "Updated memory value"
-        updated_data["tags"] = ["updated", "test"]
+        # Create second memory with different content
+        updated_data = {"value": "Updated memory value"}
 
         response2 = client.post("/api/memories", json=updated_data)
         assert response2.status_code == 201
 
-        # Should be same ID (updated, not new)
+        # Should be different ID (new memory)
         data = response2.json()
-        assert data["id"] == first_id
+        assert data["id"] != first_id
         assert data["value"] == "Updated memory value"
-        assert data["tags"] == ["updated", "test"]
 
     def test_create_memory_validation_errors(self, client, db_session):
-        """Test validation errors"""
-        # Empty category
-        response = client.post("/api/memories", json={"category": "", "value": "test", "tags": []})
-        assert response.status_code == 422
-
+        """Test validation errors - simplified AI-driven schema (Issue #112)"""
         # Empty value
-        response = client.post("/api/memories", json={"category": "test", "value": "", "tags": []})
+        response = client.post("/api/memories", json={"value": ""})
         assert response.status_code == 422
 
         # Missing required fields
-        response = client.post("/api/memories", json={"tags": []})
+        response = client.post("/api/memories", json={})
+        assert response.status_code == 422
+
+        # Only whitespace value
+        response = client.post("/api/memories", json={"value": "   "})
         assert response.status_code == 422
 
 
 class TestGetMemory:
-    """Tests for GET /api/memories/{key}"""
+    """Tests for GET /api/memories/{id} - simplified AI-driven schema (Issue #112)"""
 
     def test_get_memory_success(self, client, db_session, sample_memory_data):
-        """Test successful memory retrieval"""
+        """Test successful memory retrieval - simplified AI-driven schema (Issue #112)"""
         # Create memory first
         create_response = client.post("/api/memories", json=sample_memory_data)
         assert create_response.status_code == 201
+        memory_id = create_response.json()["id"]
 
-        # Get memory
-        response = client.get(f"/api/memories/{sample_memory_data['key']}")
+        # Get memory by ID
+        response = client.get(f"/api/memories/{memory_id}")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["key"] == sample_memory_data["key"]
+        assert data["id"] == memory_id
         assert data["value"] == sample_memory_data["value"]
 
-    def test_get_memory_with_category_filter(self, client, db_session, sample_memory_data):
-        """Test getting memory with category filter"""
+    def test_get_memory_shows_ai_processing_status(self, client, db_session, sample_memory_data):
+        """Test getting memory shows AI processing status - simplified AI-driven schema (Issue #112)"""
         # Create memory
-        client.post("/api/memories", json=sample_memory_data)
+        create_response = client.post("/api/memories", json=sample_memory_data)
+        memory_id = create_response.json()["id"]
 
-        # Get with correct category
-        response = client.get(
-            f"/api/memories/{sample_memory_data['key']}",
-            params={"category": sample_memory_data["category"]},
-        )
+        # Get memory
+        response = client.get(f"/api/memories/{memory_id}")
         assert response.status_code == 200
 
-        # Get with wrong category
-        response = client.get(
-            f"/api/memories/{sample_memory_data['key']}", params={"category": "wrong_category"}
-        )
-        assert response.status_code == 404
+        data = response.json()
+        assert "processing_status" in data
+        assert data["processing_status"] in ["pending", "partial", "complete"]
+        assert "tags" in data  # AI-generated tags
+        assert "summary" in data  # AI-generated summary
 
     def test_get_memory_not_found(self, client, db_session):
-        """Test getting non-existent memory"""
-        response = client.get("/api/memories/nonexistent_key")
+        """Test getting non-existent memory - simplified AI-driven schema (Issue #112)"""
+        response = client.get("/api/memories/nonexistent_id")
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
@@ -126,25 +122,19 @@ class TestListMemories:
     """Tests for GET /api/memories"""
 
     def test_list_memories_empty(self, client, db_session):
-        """Test listing when no memories exist"""
+        """Test listing when no memories exist - simplified AI-driven schema (Issue #112)"""
         response = client.get("/api/memories")
 
         assert response.status_code == 200
         data = response.json()
         assert data["memories"] == []
         assert data["total"] == 0
-        assert data["category"] is None
 
     def test_list_memories_with_data(self, client, db_session):
-        """Test listing with multiple memories"""
+        """Test listing with multiple memories - simplified AI-driven schema (Issue #112)"""
         # Create multiple memories
         for i in range(3):
-            memory_data = {
-                "category": f"category_{i}",
-                "key": f"key_{i}",
-                "value": f"Memory {i}",
-                "tags": [f"tag_{i}"],
-            }
+            memory_data = {"value": f"Memory {i}"}
             client.post("/api/memories", json=memory_data)
 
         response = client.get("/api/memories")
@@ -154,35 +144,40 @@ class TestListMemories:
         assert len(data["memories"]) == 3
         assert data["total"] == 3
 
-    def test_list_memories_with_category_filter(self, client, db_session):
-        """Test listing with category filter"""
-        # Create memories in different categories
-        for category in ["work", "personal", "work"]:
-            memory_data = {"category": category, "value": f"Memory in {category}", "tags": []}
+        # Check AI-driven fields are present (optimized response)
+        for memory in data["memories"]:
+            assert "id" in memory
+            assert "value" not in memory  # Optimized response doesn't include full value
+            assert "tags" in memory  # AI-generated
+            assert "summary" in memory  # AI-generated summary instead of full value
+            assert "processing_status" in memory
+
+    def test_list_memories_shows_ai_processing(self, client, db_session):
+        """Test listing shows AI processing status - simplified AI-driven schema (Issue #112)"""
+        # Create memories with different content
+        memory_contents = ["Work related memory", "Personal thoughts", "Project notes"]
+        for content in memory_contents:
+            memory_data = {"value": content}
             client.post("/api/memories", json=memory_data)
 
-        # Filter by category
-        response = client.get("/api/memories", params={"category": "work"})
+        response = client.get("/api/memories")
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["memories"]) == 2
-        assert data["total"] == 2
-        assert data["category"] == "work"
+        assert len(data["memories"]) == 3
+        assert data["total"] == 3
 
         for memory in data["memories"]:
-            assert memory["category"] == "work"
+            assert "processing_status" in memory
+            assert memory["processing_status"] in ["pending", "partial", "complete"]
+            assert "tags" in memory  # AI-generated tags
+            assert "summary" in memory  # AI-generated summary
 
     def test_list_memories_pagination(self, client, db_session):
-        """Test pagination parameters"""
+        """Test pagination parameters - simplified AI-driven schema (Issue #112)"""
         # Create 5 memories
         for i in range(5):
-            memory_data = {
-                "category": "test",
-                "key": f"key_{i}",
-                "value": f"Memory {i}",
-                "tags": [],
-            }
+            memory_data = {"value": f"Memory {i}"}
             client.post("/api/memories", json=memory_data)
 
         # Test limit
@@ -201,43 +196,47 @@ class TestListMemories:
 
 
 class TestUpdateMemory:
-    """Tests for PUT /api/memories/{key}"""
+    """Tests for PUT /api/memories/{id} - simplified AI-driven schema (Issue #112)"""
 
     def test_update_memory_success(self, client, db_session, sample_memory_data):
-        """Test successful memory update"""
-        # Create memory
-        client.post("/api/memories", json=sample_memory_data)
-
-        # Update memory
-        update_data = {"value": "Updated memory value", "tags": ["updated"]}
-
-        response = client.put(f"/api/memories/{sample_memory_data['key']}", json=update_data)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["value"] == "Updated memory value"
-        assert data["tags"] == ["updated"]
-        assert data["category"] == sample_memory_data["category"]  # Unchanged
-
-    def test_update_memory_not_found(self, client, db_session):
-        """Test updating non-existent memory"""
-        update_data = {"value": "Updated value"}
-
-        response = client.put("/api/memories/nonexistent", json=update_data)
-        assert response.status_code == 404
-
-
-class TestDeleteMemory:
-    """Tests for DELETE /api/memories/{key}"""
-
-    def test_delete_memory_success(self, client, db_session, sample_memory_data):
-        """Test successful memory deletion"""
+        """Test successful memory update - simplified AI-driven schema (Issue #112)"""
         # Create memory
         create_response = client.post("/api/memories", json=sample_memory_data)
         memory_id = create_response.json()["id"]
 
-        # Delete memory
-        response = client.delete(f"/api/memories/{sample_memory_data['key']}")
+        # Update memory - AI will re-process tags and summary when value changes
+        update_data = {"value": "Updated memory value"}
+
+        response = client.put(f"/api/memories/{memory_id}", json=update_data)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["value"] == "Updated memory value"
+        assert data["id"] == memory_id
+        # AI will re-process the content, so processing_status may change
+        assert "processing_status" in data
+        assert "tags" in data  # AI will regenerate tags
+        assert "summary" in data  # AI will regenerate summary
+
+    def test_update_memory_not_found(self, client, db_session):
+        """Test updating non-existent memory - simplified AI-driven schema (Issue #112)"""
+        update_data = {"value": "Updated value"}
+
+        response = client.put("/api/memories/nonexistent_id", json=update_data)
+        assert response.status_code == 404
+
+
+class TestDeleteMemory:
+    """Tests for DELETE /api/memories/{id} - simplified AI-driven schema (Issue #112)"""
+
+    def test_delete_memory_success(self, client, db_session, sample_memory_data):
+        """Test successful memory deletion - simplified AI-driven schema (Issue #112)"""
+        # Create memory
+        create_response = client.post("/api/memories", json=sample_memory_data)
+        memory_id = create_response.json()["id"]
+
+        # Delete memory by ID
+        response = client.delete(f"/api/memories/{memory_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -245,12 +244,12 @@ class TestDeleteMemory:
         assert data["data"]["deleted_id"] == memory_id
 
         # Verify memory is gone
-        get_response = client.get(f"/api/memories/{sample_memory_data['key']}")
+        get_response = client.get(f"/api/memories/{memory_id}")
         assert get_response.status_code == 404
 
     def test_delete_memory_not_found(self, client, db_session):
-        """Test deleting non-existent memory"""
-        response = client.delete("/api/memories/nonexistent")
+        """Test deleting non-existent memory - simplified AI-driven schema (Issue #112)"""
+        response = client.delete("/api/memories/nonexistent_id")
         assert response.status_code == 404
 
 
@@ -258,25 +257,23 @@ class TestMemoryStats:
     """Tests for GET /api/memories/stats"""
 
     def test_stats_empty_database(self, client, db_session):
-        """Test stats with empty database"""
+        """Test stats with empty database - simplified AI-driven schema (Issue #112)"""
         response = client.get("/api/memories/stats")
 
         assert response.status_code == 200
         data = response.json()
         assert data["total_memories"] == 0
-        assert data["total_categories"] == 0
         assert data["total_tags"] == 0
-        assert data["categories"] == {}
         assert data["recent_memories"] == 0
         assert "storage_info" in data
 
     def test_stats_with_data(self, client, db_session):
-        """Test stats with sample data"""
-        # Create memories in different categories
+        """Test stats with sample data - simplified AI-driven schema (Issue #112)"""
+        # Create memories with different content (AI will generate tags)
         memories_data = [
-            {"category": "work", "value": "Work memory 1", "tags": ["important", "project"]},
-            {"category": "work", "value": "Work memory 2", "tags": ["meeting"]},
-            {"category": "personal", "value": "Personal memory", "tags": ["family", "important"]},
+            {"value": "Work memory about important project"},
+            {"value": "Work memory about meeting notes"},
+            {"value": "Personal memory about family"},
         ]
 
         for memory_data in memories_data:
@@ -287,11 +284,10 @@ class TestMemoryStats:
         assert response.status_code == 200
         data = response.json()
         assert data["total_memories"] == 3
-        assert data["total_categories"] == 2
-        assert data["total_tags"] == 4  # unique tags: important, project, meeting, family
-        assert data["categories"]["work"] == 2
-        assert data["categories"]["personal"] == 1
         assert data["recent_memories"] == 3  # All recent
+        # Note: total_tags will depend on AI-generated tags
+        assert "total_tags" in data
+        assert "storage_info" in data
 
 
 class TestAPIPerformance:
