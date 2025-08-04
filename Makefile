@@ -15,10 +15,11 @@ help: ## Show available commands
 	@echo "Development:"
 	@echo "  run         - Run development server"
 	@echo "  test        - Run tests"
+	@echo "  test-fast   - Run tests (fast mode)"
 	@echo "  lint        - Run ruff linter"
 	@echo "  format      - Format code with ruff"
 	@echo "  type-check  - Run mypy type checking"
-	@echo "  quality     - Run all quality checks"
+	@echo "  quality     - Run all quality checks (includes tests)"
 	@echo ""
 	@echo "Docker:"
 	@echo "  docker-build - Build Docker image"
@@ -46,6 +47,10 @@ test: ## Run tests
 	@echo "Running tests..."
 	uv run pytest -v
 
+test-fast: ## Run tests with faster options (fail fast, short output, no warnings)
+	@echo "Running tests (fast mode)..."
+	uv run pytest -x --tb=line -q --disable-warnings
+
 test-cov: ## Run tests with coverage
 	@echo "Running tests with coverage..."
 	uv run pytest --cov=app --cov-report=html --cov-report=term
@@ -66,7 +71,7 @@ type-check: ## Run mypy type checking
 	@echo "Running mypy type checking..."
 	uv run mypy app/
 
-quality: lint format-check type-check ## Run all quality checks
+quality: lint format-check type-check test-fast ## Run all quality checks including tests
 	@echo "All quality checks completed"
 
 clean: ## Clean cache and build files
