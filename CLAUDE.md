@@ -138,3 +138,7 @@ See [API.md](./docs/API.md) for detailed technical specifications.
 - Prefer editing existing files over creating new ones  
 - Only create documentation when explicitly requested
 - **Japanese Localization**: All documentation (README.md, QUICKSTART.md, API.md) has been rewritten in Japanese for better accessibility to Japanese users. Maintain this localization in future updates.
+
+## Development Best Practices
+
+- サーバテストを行うときは必ずdockerを起動する
