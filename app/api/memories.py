@@ -28,69 +28,138 @@ router = APIRouter()
 @router.post("/memories", response_model=MemoryResponse, status_code=201)
 async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) -> MemoryResponse:
     """Save a new memory - simplified AI-driven schema (Issue #112)"""
-    # Create new memory (each save creates a new memory in simplified schema)
-    new_memory = Memory(
-        value=memory_data.value,
-    )
+    import traceback
+    import uuid
 
-    # Generate AI summary and tags if enabled (Issue #112)
-    if summarization_service.enabled:
+    request_id = str(uuid.uuid4())[:8]
+    errors = []  # Track non-fatal errors
+
+    try:
+        # Create new memory (each save creates a new memory in simplified schema)
+        new_memory = Memory(
+            value=memory_data.value,
+        )
+
+        # Generate AI summary and tags if enabled (Issue #112)
+        if summarization_service.enabled:
+            try:
+                # Generate AI summary
+                summary = await summarization_service.generate_summary(memory_data.value)
+                new_memory.summary = summary
+
+                # Generate comprehensive AI tags based on content
+                # TODO: Implement AI tag generation service
+                # For now, use improved keyword extraction supporting Japanese
+                import re
+
+                # Extract meaningful words (both English and Japanese)
+                text = memory_data.value.lower()
+                # Remove common markup and symbols
+                text = re.sub(r'[#\*`\-_=+(){}\\[\]|<>"\';:.?,!]', " ", text)
+
+                words = text.split()
+                important_words = []
+
+                for word in words:
+                    # Include words with 2+ characters (for Japanese) or 3+ English letters
+                    if len(word) >= 2 and (
+                        word.isalpha()
+                        or any(
+                            "\u3040" <= c <= "\u309f"
+                            or "\u30a0" <= c <= "\u30ff"
+                            or "\u4e00" <= c <= "\u9faf"
+                            for c in word
+                        )
+                    ):
+                        important_words.append(word)
+
+                ai_tags = list(set(important_words[:8]))  # Take up to 8 unique words as tags
+                new_memory.tags_list = ai_tags
+
+                new_memory.ai_processed_at = datetime.utcnow()
+            except Exception as e:
+                # If AI processing fails, continue without AI enhancements
+                error_msg = f"AI processing failed: {str(e)} (request_id: {request_id})"
+                print(error_msg)
+                errors.append(
+                    {
+                        "stage": "ai_processing",
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "recoverable": True,
+                    }
+                )
+                new_memory.tags_list = []  # Empty tags if AI processing fails
+
+        # Database save operation
         try:
-            # Generate AI summary
-            summary = await summarization_service.generate_summary(memory_data.value)
-            new_memory.summary = summary
-
-            # Generate comprehensive AI tags based on content
-            # TODO: Implement AI tag generation service
-            # For now, use improved keyword extraction supporting Japanese
-            import re
-
-            # Extract meaningful words (both English and Japanese)
-            text = memory_data.value.lower()
-            # Remove common markup and symbols
-            text = re.sub(r'[#\*`\-_=+(){}\\[\]|<>"\';:.?,!]', " ", text)
-
-            words = text.split()
-            important_words = []
-
-            for word in words:
-                # Include words with 2+ characters (for Japanese) or 3+ English letters
-                if len(word) >= 2 and (
-                    word.isalpha()
-                    or any(
-                        "\u3040" <= c <= "\u309f"
-                        or "\u30a0" <= c <= "\u30ff"
-                        or "\u4e00" <= c <= "\u9faf"
-                        for c in word
-                    )
-                ):
-                    important_words.append(word)
-
-            ai_tags = list(set(important_words[:8]))  # Take up to 8 unique words as tags
-            new_memory.tags_list = ai_tags
-
-            new_memory.ai_processed_at = datetime.utcnow()
+            db.add(new_memory)
+            db.commit()
+            db.refresh(new_memory)
         except Exception as e:
-            # If AI processing fails, continue without AI enhancements
-            print(f"AI processing failed: {e}")
-            new_memory.tags_list = []  # Empty tags if AI processing fails
+            db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "Database save failed",
+                    "message": f"Failed to save memory to database: {str(e)}",
+                    "error_type": type(e).__name__,
+                    "stage": "database_save",
+                    "request_id": request_id,
+                    "recoverable": False,
+                },
+            ) from e
 
-    db.add(new_memory)
-    db.commit()
-    db.refresh(new_memory)
+        # Generate vector embedding automatically (Issue #112 enhancement)
+        if embedding_service.enabled:
+            try:
+                embedding_generated = await embedding_service.generate_embedding_for_memory(
+                    new_memory
+                )
+                if embedding_generated:
+                    db.commit()
+                    db.refresh(new_memory)
+            except Exception as e:
+                error_msg = f"Embedding generation failed: {str(e)} (request_id: {request_id})"
+                print(error_msg)
+                errors.append(
+                    {
+                        "stage": "embedding_generation",
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "recoverable": True,
+                    }
+                )
 
-    # Generate vector embedding automatically (Issue #112 enhancement)
-    if embedding_service.enabled:
-        try:
-            embedding_generated = await embedding_service.generate_embedding_for_memory(new_memory)
-            if embedding_generated:
-                db.commit()
-                db.refresh(new_memory)
-        except Exception as e:
-            print(f"Embedding generation failed: {e}")
-            # Continue without embedding if it fails
+        # Add warnings to response if there were non-fatal errors
+        response = MemoryResponse.model_validate(new_memory)
+        if errors:
+            # Add warning header for partial failures
+            print(f"Memory saved with warnings (request_id: {request_id}): {errors}")
 
-    return MemoryResponse.model_validate(new_memory)
+        return response
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Catch any unexpected errors
+        db.rollback()
+        error_trace = traceback.format_exc()
+        print(f"Unexpected error saving memory (request_id: {request_id}): {error_trace}")
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Unexpected error occurred",
+                "message": f"An unexpected error occurred while saving memory: {str(e)}",
+                "error_type": type(e).__name__,
+                "stage": "unknown",
+                "request_id": request_id,
+                "recoverable": False,
+                "suggestion": "Please try again. If the problem persists, contact support with the request_id.",
+            },
+        ) from e
 
 
 @router.get("/memories/stats", response_model=MemoryStatsResponse)
@@ -250,66 +319,143 @@ async def update_memory(
     db: Session = Depends(get_db),
 ) -> MemoryResponse:
     """Update memory by ID - simplified AI-driven schema (Issue #112)"""
-    memory = db.query(Memory).filter(Memory.id == memory_id).first()
+    import traceback
+    import uuid
 
-    if not memory:
+    request_id = str(uuid.uuid4())[:8]
+    errors = []  # Track non-fatal errors
+
+    try:
+        memory = db.query(Memory).filter(Memory.id == memory_id).first()
+
+        if not memory:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": "Memory not found",
+                    "message": f"Memory with ID '{memory_id}' not found",
+                    "memory_id": memory_id,
+                    "request_id": request_id,
+                    "suggestion": "Please check the memory ID and ensure it exists",
+                },
+            )
+
+        # Update value (only field that can be updated in simplified schema)
+        update_data = memory_update.model_dump(exclude_unset=True)
+        if "value" in update_data:
+            memory.value = update_data["value"]
+
+            # Re-process with AI when value changes
+            if summarization_service.enabled:
+                try:
+                    # Regenerate AI summary
+                    summary = await summarization_service.generate_summary(memory.value)
+                    memory.summary = summary
+
+                    # Regenerate comprehensive AI tags with improved Japanese support
+                    import re
+
+                    text = memory.value.lower()
+                    text = re.sub(r'[#\*`\-_=+(){}\\[\]|<>"\';:.?,!]', " ", text)
+
+                    words = text.split()
+                    important_words = []
+
+                    for word in words:
+                        if len(word) >= 2 and (
+                            word.isalpha()
+                            or any(
+                                "\u3040" <= c <= "\u309f"
+                                or "\u30a0" <= c <= "\u30ff"
+                                or "\u4e00" <= c <= "\u9faf"
+                                for c in word
+                            )
+                        ):
+                            important_words.append(word)
+
+                    ai_tags = list(set(important_words[:8]))
+                    memory.tags_list = ai_tags
+
+                    memory.ai_processed_at = datetime.utcnow()
+                except Exception as e:
+                    error_msg = f"AI re-processing failed: {str(e)} (request_id: {request_id})"
+                    print(error_msg)
+                    errors.append(
+                        {
+                            "stage": "ai_reprocessing",
+                            "error": str(e),
+                            "error_type": type(e).__name__,
+                            "recoverable": True,
+                        }
+                    )
+
+            # Regenerate vector embedding when content changes
+            if embedding_service.enabled:
+                try:
+                    await embedding_service.generate_embedding_for_memory(memory)
+                except Exception as e:
+                    error_msg = (
+                        f"Embedding regeneration failed: {str(e)} (request_id: {request_id})"
+                    )
+                    print(error_msg)
+                    errors.append(
+                        {
+                            "stage": "embedding_regeneration",
+                            "error": str(e),
+                            "error_type": type(e).__name__,
+                            "recoverable": True,
+                        }
+                    )
+
+            # Database update operation
+            try:
+                memory.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(memory)
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(
+                    status_code=500,
+                    detail={
+                        "error": "Database update failed",
+                        "message": f"Failed to update memory in database: {str(e)}",
+                        "error_type": type(e).__name__,
+                        "stage": "database_update",
+                        "memory_id": memory_id,
+                        "request_id": request_id,
+                        "recoverable": False,
+                    },
+                ) from e
+
+        # Add warnings to response if there were non-fatal errors
+        response = MemoryResponse.model_validate(memory)
+        if errors:
+            print(f"Memory updated with warnings (request_id: {request_id}): {errors}")
+
+        return response
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Catch any unexpected errors
+        db.rollback()
+        error_trace = traceback.format_exc()
+        print(f"Unexpected error updating memory (request_id: {request_id}): {error_trace}")
+
         raise HTTPException(
-            status_code=404,
-            detail=f"Memory with ID '{memory_id}' not found",
-        )
-
-    # Update value (only field that can be updated in simplified schema)
-    update_data = memory_update.model_dump(exclude_unset=True)
-    if "value" in update_data:
-        memory.value = update_data["value"]
-
-        # Re-process with AI when value changes
-        if summarization_service.enabled:
-            try:
-                # Regenerate AI summary
-                summary = await summarization_service.generate_summary(memory.value)
-                memory.summary = summary
-
-                # Regenerate comprehensive AI tags with improved Japanese support
-                import re
-
-                text = memory.value.lower()
-                text = re.sub(r'[#\*`\-_=+(){}\\[\]|<>"\';:.?,!]', " ", text)
-
-                words = text.split()
-                important_words = []
-
-                for word in words:
-                    if len(word) >= 2 and (
-                        word.isalpha()
-                        or any(
-                            "\u3040" <= c <= "\u309f"
-                            or "\u30a0" <= c <= "\u30ff"
-                            or "\u4e00" <= c <= "\u9faf"
-                            for c in word
-                        )
-                    ):
-                        important_words.append(word)
-
-                ai_tags = list(set(important_words[:8]))
-                memory.tags_list = ai_tags
-
-                memory.ai_processed_at = datetime.utcnow()
-            except Exception as e:
-                print(f"AI re-processing failed: {e}")
-
-        # Regenerate vector embedding when content changes
-        if embedding_service.enabled:
-            try:
-                await embedding_service.generate_embedding_for_memory(memory)
-            except Exception as e:
-                print(f"Embedding regeneration failed: {e}")
-
-        memory.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(memory)
-
-    return MemoryResponse.model_validate(memory)
+            status_code=500,
+            detail={
+                "error": "Unexpected error occurred",
+                "message": f"An unexpected error occurred while updating memory: {str(e)}",
+                "error_type": type(e).__name__,
+                "stage": "unknown",
+                "memory_id": memory_id,
+                "request_id": request_id,
+                "recoverable": False,
+                "suggestion": "Please try again. If the problem persists, contact support with the request_id.",
+            },
+        ) from e
 
 
 @router.post("/memories/search", response_model=SearchResponse)
