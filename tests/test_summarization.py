@@ -179,34 +179,34 @@ class TestMemoryWithSummarySchema:
     """Test memory schema extensions for summary support"""
 
     def test_memory_model_summary_fields_implemented(self):
-        """Test that summary fields are in Memory model (Issue #109 implemented)"""
+        """Test that AI summary fields are in Memory model - simplified AI-driven schema (Issue #112)"""
         from datetime import datetime
 
         from app.models.memory import Memory
 
-        # Create memory instance with proper datetime fields
+        # Create memory instance with simplified schema
         now = datetime.utcnow()
         memory = Memory(
-            category="test",
-            key="test_key",
             value="test value",
             tags_list=["test"],
             created_at=now,
             updated_at=now,
         )
 
-        # These attributes should exist now that Issue #109 is implemented
+        # AI-driven attributes should exist in simplified schema
         assert hasattr(memory, "summary")
-        assert hasattr(memory, "summary_generated_at")
+        assert hasattr(memory, "ai_processed_at")
+        assert hasattr(memory, "processing_status")
 
     def test_memory_response_schema_summary_fields_implemented(self):
-        """Test that summary fields are in MemoryResponse schema (Issue #109 implemented)"""
+        """Test that AI summary fields are in MemoryResponse schema - simplified AI-driven schema (Issue #112)"""
         from app.models.schemas import MemoryResponse
 
-        # Check that summary fields are in the schema now that Issue #109 is implemented
+        # Check that AI-driven fields are in the simplified schema
         field_names = set(MemoryResponse.model_fields.keys())
         assert "summary" in field_names
-        assert "summary_generated_at" in field_names
+        assert "ai_processed_at" in field_names
+        assert "processing_status" in field_names
 
 
 class TestMemoryAPIWithSummary:

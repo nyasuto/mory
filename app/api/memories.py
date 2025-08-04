@@ -3,7 +3,6 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
@@ -27,52 +26,32 @@ router = APIRouter()
 
 @router.post("/memories", response_model=MemoryResponse, status_code=201)
 async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) -> MemoryResponse:
-    """Save a new memory or update existing one by key"""
-    # Check if memory with this key already exists
-    existing_memory = None
-    if memory_data.key:
-        existing_memory = (
-            db.query(Memory)
-            .filter(Memory.key == memory_data.key, Memory.category == memory_data.category)
-            .first()
-        )
-
-    if existing_memory:
-        # Update existing memory
-        existing_memory.value = memory_data.value
-        existing_memory.tags_list = memory_data.tags
-        existing_memory.updated_at = datetime.utcnow()
-
-        # Regenerate summary if content changed and enabled (Issue #110)
-        if summarization_service.enabled:
-            try:
-                summary = await summarization_service.generate_summary(memory_data.value)
-                existing_memory.summary = summary
-                existing_memory.summary_generated_at = datetime.utcnow()
-            except Exception as e:
-                print(f"Summary generation failed: {e}")
-
-        db.commit()
-        db.refresh(existing_memory)
-        return MemoryResponse.model_validate(existing_memory)
-
-    # Create new memory
+    """Save a new memory - simplified AI-driven schema (Issue #112)"""
+    # Create new memory (each save creates a new memory in simplified schema)
     new_memory = Memory(
-        category=memory_data.category,
-        key=memory_data.key,
         value=memory_data.value,
-        tags_list=memory_data.tags,
     )
 
-    # Generate summary if enabled (Issue #110)
+    # Generate AI summary and tags if enabled (Issue #112)
     if summarization_service.enabled:
         try:
+            # Generate AI summary
             summary = await summarization_service.generate_summary(memory_data.value)
             new_memory.summary = summary
-            new_memory.summary_generated_at = datetime.utcnow()
+
+            # Generate comprehensive AI tags based on content
+            # TODO: Implement AI tag generation service
+            # For now, use simple keyword extraction as placeholder
+            words = memory_data.value.lower().split()
+            important_words = [word for word in words if len(word) > 3 and word.isalpha()]
+            ai_tags = list(set(important_words[:5]))  # Take up to 5 unique words as tags
+            new_memory.tags_list = ai_tags
+
+            new_memory.ai_processed_at = datetime.utcnow()
         except Exception as e:
-            # If summary generation fails, continue without summary
-            print(f"Summary generation failed: {e}")
+            # If AI processing fails, continue without AI enhancements
+            print(f"AI processing failed: {e}")
+            new_memory.tags_list = []  # Empty tags if AI processing fails
 
     db.add(new_memory)
     db.commit()
@@ -83,22 +62,15 @@ async def save_memory(memory_data: MemoryCreate, db: Session = Depends(get_db)) 
 
 @router.get("/memories/stats", response_model=MemoryStatsResponse)
 async def get_memory_stats(db: Session = Depends(get_db)) -> MemoryStatsResponse:
-    """Get memory statistics"""
+    """Get memory statistics - simplified AI-driven schema (Issue #112)"""
     # Basic counts
     total_memories = db.query(Memory).count()
-    total_categories = db.query(func.count(func.distinct(Memory.category))).scalar()
-
-    # Category breakdown
-    category_counts: dict[str, int] = {
-        row[0]: row[1]
-        for row in db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all()
-    }
 
     # Recent memories (last 24 hours)
     yesterday = datetime.utcnow() - timedelta(days=1)
     recent_memories = db.query(Memory).filter(Memory.created_at >= yesterday).count()
 
-    # Unique tags count (approximate)
+    # AI-generated tags count
     all_tags = []
     memories_with_tags = db.query(Memory.tags).filter(Memory.tags != "[]").all()
     for (tags_json,) in memories_with_tags:
@@ -114,74 +86,58 @@ async def get_memory_stats(db: Session = Depends(get_db)) -> MemoryStatsResponse
 
     return MemoryStatsResponse(
         total_memories=total_memories,
-        total_categories=total_categories,
+        total_categories=0,  # No categories in simplified schema
         total_tags=total_tags,
-        categories=category_counts,
+        categories={},  # No categories in simplified schema
         recent_memories=recent_memories,
         storage_info={
             "backend": "sqlite",
             "database_file": "memories.db",
             "supports_fts": True,
             "supports_semantic": False,  # Will be updated when semantic search is implemented
+            "ai_driven": True,  # New: Indicates AI-driven tag and summary generation
         },
     )
 
 
-@router.get("/memories/{memory_key}", response_model=MemoryResponse)
+@router.get("/memories/{memory_id}", response_model=MemoryResponse)
 async def get_memory(
-    memory_key: str,
-    category: str | None = Query(None, description="Filter by category"),
+    memory_id: str,
     db: Session = Depends(get_db),
 ) -> MemoryResponse:
-    """Get memory by key"""
-    query = db.query(Memory).filter(Memory.key == memory_key)
-
-    if category:
-        query = query.filter(Memory.category == category)
-
-    memory = query.first()
+    """Get memory by ID - simplified AI-driven schema (Issue #112)"""
+    memory = db.query(Memory).filter(Memory.id == memory_id).first()
 
     if not memory:
         raise HTTPException(
             status_code=404,
-            detail=f"Memory with key '{memory_key}'"
-            + (f" in category '{category}'" if category else "")
-            + " not found",
+            detail=f"Memory with ID '{memory_id}' not found",
         )
 
     return MemoryResponse.model_validate(memory)
 
 
-# Issue #111: New detail endpoint for full content access
-@router.get("/memories/{memory_key}/detail", response_model=MemoryResponse)
+# Issue #111: Detail endpoint for full content access - simplified schema (Issue #112)
+@router.get("/memories/{memory_id}/detail", response_model=MemoryResponse)
 async def get_memory_detail(
-    memory_key: str,
-    category: str | None = Query(None, description="Filter by category"),
+    memory_id: str,
     db: Session = Depends(get_db),
 ) -> MemoryResponse:
-    """Get full memory details by key (Issue #111)"""
-    query = db.query(Memory).filter(Memory.key == memory_key)
-
-    if category:
-        query = query.filter(Memory.category == category)
-
-    memory = query.first()
+    """Get full memory details by ID - simplified AI-driven schema (Issue #112)"""
+    memory = db.query(Memory).filter(Memory.id == memory_id).first()
 
     if not memory:
         raise HTTPException(
             status_code=404,
-            detail=f"Memory with key '{memory_key}'"
-            + (f" in category '{category}'" if category else "")
-            + " not found",
+            detail=f"Memory with ID '{memory_id}' not found",
         )
 
     return MemoryResponse.model_validate(memory)
 
 
-# Issue #111: Optimized list endpoint with summary-only responses
+# Issue #111: Optimized list endpoint - simplified AI-driven schema (Issue #112)
 @router.get("/memories")
 async def list_memories(
-    category: str | None = Query(None, description="Filter by category"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of memories to return"),
     offset: int = Query(0, ge=0, description="Number of memories to skip"),
     include_full_text: bool = Query(
@@ -189,11 +145,8 @@ async def list_memories(
     ),
     db: Session = Depends(get_db),
 ):
-    """List memories with optional filtering and optimized responses (Issue #111)"""
+    """List memories with optimized responses - simplified AI-driven schema (Issue #112)"""
     query = db.query(Memory)
-
-    if category:
-        query = query.filter(Memory.category == category)
 
     # Get total count
     total = query.count()
@@ -207,13 +160,12 @@ async def list_memories(
         return MemoryListResponse(
             memories=[MemoryResponse.model_validate(memory) for memory in memories],
             total=total,
-            category=category,
         )
     else:
         # Optimized response: summary only
         summary_memories = []
         for memory in memories:
-            # Create summary response with truncated or AI-generated summary
+            # Create summary response with AI-generated summary or fallback
             summary = memory.summary
             if not summary:
                 # Create fallback summary if no AI summary exists
@@ -221,87 +173,83 @@ async def list_memories(
 
             summary_memory = MemorySummaryResponse(
                 id=str(memory.id),
-                category=str(memory.category),
-                key=str(memory.key) if memory.key else None,
                 tags=memory.tags_list or [],
                 summary=str(summary) if summary else None,
                 created_at=memory.created_at,
                 updated_at=memory.updated_at,
-                has_embedding=False,  # Will be updated when semantic search is implemented
+                has_embedding=memory.has_embedding,
+                processing_status=memory.processing_status,
             )
             summary_memories.append(summary_memory)
 
         return MemoryListSummaryResponse(
             memories=summary_memories,
             total=total,
-            category=category,
         )
 
 
-@router.delete("/memories/{memory_key}", response_model=MessageResponse)
+@router.delete("/memories/{memory_id}", response_model=MessageResponse)
 async def delete_memory(
-    memory_key: str,
-    category: str | None = Query(None, description="Filter by category"),
+    memory_id: str,
     db: Session = Depends(get_db),
 ) -> MessageResponse:
-    """Delete memory by key"""
-    query = db.query(Memory).filter(Memory.key == memory_key)
-
-    if category:
-        query = query.filter(Memory.category == category)
-
-    memory = query.first()
+    """Delete memory by ID - simplified AI-driven schema (Issue #112)"""
+    memory = db.query(Memory).filter(Memory.id == memory_id).first()
 
     if not memory:
         raise HTTPException(
             status_code=404,
-            detail=f"Memory with key '{memory_key}'"
-            + (f" in category '{category}'" if category else "")
-            + " not found",
+            detail=f"Memory with ID '{memory_id}' not found",
         )
 
     db.delete(memory)
     db.commit()
 
     return MessageResponse(
-        message=f"Memory '{memory_key}' deleted successfully", data={"deleted_id": memory.id}
+        message=f"Memory '{memory_id}' deleted successfully", data={"deleted_id": memory.id}
     )
 
 
-@router.put("/memories/{memory_key}", response_model=MemoryResponse)
+@router.put("/memories/{memory_id}", response_model=MemoryResponse)
 async def update_memory(
-    memory_key: str,
+    memory_id: str,
     memory_update: MemoryUpdate,
-    category: str | None = Query(None, description="Filter by category"),
     db: Session = Depends(get_db),
 ) -> MemoryResponse:
-    """Update memory by key"""
-    query = db.query(Memory).filter(Memory.key == memory_key)
-
-    if category:
-        query = query.filter(Memory.category == category)
-
-    memory = query.first()
+    """Update memory by ID - simplified AI-driven schema (Issue #112)"""
+    memory = db.query(Memory).filter(Memory.id == memory_id).first()
 
     if not memory:
         raise HTTPException(
             status_code=404,
-            detail=f"Memory with key '{memory_key}'"
-            + (f" in category '{category}'" if category else "")
-            + " not found",
+            detail=f"Memory with ID '{memory_id}' not found",
         )
 
-    # Update fields
+    # Update value (only field that can be updated in simplified schema)
     update_data = memory_update.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        if field == "tags":
-            memory.tags_list = value
-        else:
-            setattr(memory, field, value)
+    if "value" in update_data:
+        memory.value = update_data["value"]
 
-    memory.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(memory)
+        # Re-process with AI when value changes
+        if summarization_service.enabled:
+            try:
+                # Regenerate AI summary
+                summary = await summarization_service.generate_summary(memory.value)
+                memory.summary = summary
+
+                # Regenerate comprehensive AI tags
+                words = memory.value.lower().split()
+                important_words = [word for word in words if len(word) > 3 and word.isalpha()]
+                ai_tags = list(set(important_words[:5]))  # Take up to 5 unique words as tags
+                memory.tags_list = ai_tags
+
+                memory.ai_processed_at = datetime.utcnow()
+            except Exception as e:
+                print(f"AI re-processing failed: {e}")
+
+        memory.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(memory)
 
     return MemoryResponse.model_validate(memory)
 

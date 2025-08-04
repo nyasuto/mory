@@ -13,43 +13,38 @@ from ..core.database import Base
 
 
 class Memory(Base):
-    """Memory model with SQLite storage and FTS5 support"""
+    """Simplified AI-driven memory model (Issue #112)"""
 
     __tablename__ = "memories"
 
-    # Core fields
+    # 🎯 User input (single field)
     id: Mapped[str] = mapped_column(
         String, primary_key=True, default=lambda: f"mem_{uuid4().hex[:8]}"
     )
-    category: Mapped[str] = mapped_column(String, index=True)
-    key: Mapped[str | None] = mapped_column(String, index=True)  # User-friendly alias
-    value: Mapped[str] = mapped_column(Text)
-    tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON serialized list
+    value: Mapped[str] = mapped_column(Text)  # Only user input required
 
-    # Timestamps
+    # 🤖 AI-generated fields (all automatic)
+    summary: Mapped[str | None] = mapped_column(Text)  # AI-generated summary
+    tags: Mapped[str] = mapped_column(Text, default="[]")  # AI-generated comprehensive tags
+
+    # ⏰ System timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+    ai_processed_at: Mapped[datetime | None] = mapped_column(DateTime)  # AI processing completion
 
-    # Summary fields (Issue #109)
-    summary: Mapped[str | None] = mapped_column(Text)  # AI-generated summary
-    summary_generated_at: Mapped[datetime | None] = mapped_column(
-        DateTime
-    )  # Summary generation timestamp
+    # 🔍 Search optimization (single embedding from summary)
+    embedding: Mapped[bytes | None] = mapped_column(LargeBinary)  # Summary-based vector
+    embedding_hash: Mapped[str | None] = mapped_column(String, index=True)
+    embedding_model: Mapped[str | None] = mapped_column(String)  # Model used for embedding
 
-    # Semantic search fields
-    embedding: Mapped[bytes | None] = mapped_column(LargeBinary)  # Vector embedding
-    embedding_hash: Mapped[str | None] = mapped_column(
-        String, index=True
-    )  # Content hash for embedding
-
-    # Database indexes
+    # Simplified indexes
     __table_args__ = (
-        Index("idx_category_created", "category", "created_at"),
         Index("idx_updated_at", "updated_at"),
-        Index("idx_key_category", "key", "category"),
-        Index("idx_summary_generated", "summary_generated_at"),  # Issue #109
+        Index("idx_ai_processed", "ai_processed_at"),
+        Index("idx_tags_search", "tags"),
+        Index("idx_embedding_hash", "embedding_hash"),
     )
 
     @validates("tags")
@@ -84,22 +79,35 @@ class Memory(Base):
         """Check if memory has semantic embedding"""
         return self.embedding is not None and len(self.embedding) > 0
 
+    @property
+    def is_ai_processed(self) -> bool:
+        """Check if AI processing is complete"""
+        return self.ai_processed_at is not None
+
+    @property
+    def processing_status(self) -> str:
+        """Get processing status"""
+        if not self.is_ai_processed:
+            return "pending"
+        elif self.summary and self.tags_list and self.has_embedding:
+            return "complete"
+        else:
+            return "partial"
+
     def to_dict(self) -> dict:
         """Convert to dictionary for API responses"""
         return {
             "id": self.id,
-            "category": self.category,
-            "key": self.key,
             "value": self.value,
-            "tags": self.tags_list,  # This already returns a Python list
+            "tags": self.tags_list,  # AI-generated comprehensive tags
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "has_embedding": self.has_embedding,
-            "summary": self.summary,  # Issue #109
-            "summary_generated_at": self.summary_generated_at.isoformat()
-            if self.summary_generated_at
-            else None,  # Issue #109
+            "summary": self.summary,
+            "ai_processed_at": self.ai_processed_at.isoformat() if self.ai_processed_at else None,
+            "processing_status": self.processing_status,
         }
 
     def __repr__(self):
-        return f"<Memory(id='{self.id}', category='{self.category}', key='{self.key}')>"
+        tags_preview = self.tags_list[:2] if self.tags_list else []
+        return f"<Memory(id='{self.id}', tags={tags_preview}, status='{self.processing_status}')>"

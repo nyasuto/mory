@@ -52,7 +52,6 @@ class SearchService:
             search_type=search_type,
             execution_time_ms=round(execution_time, 2),
             filters={
-                "category": request.category,
                 "tags": request.tags,
                 "date_from": request.date_from.isoformat() if request.date_from else None,
                 "date_to": request.date_to.isoformat() if request.date_to else None,
@@ -285,9 +284,7 @@ class SearchService:
         filters = []
         params = {}
 
-        if request.category:
-            filters.append("m.category = :category")
-            params["category"] = request.category
+        # Category filtering removed in simplified schema (Issue #112)
 
         if request.tags:
             tag_conditions = []
@@ -312,8 +309,7 @@ class SearchService:
         """Build WHERE clause filters for SQL query (legacy method for non-FTS5)"""
         filters = []
 
-        if request.category:
-            filters.append(f"m.category = '{request.category}'")
+        # Category filtering removed in simplified schema (Issue #112)
 
         if request.tags:
             tag_conditions = []
@@ -331,8 +327,7 @@ class SearchService:
 
     def _apply_filters(self, query, request: SearchRequest):
         """Apply filters to SQLAlchemy query"""
-        if request.category:
-            query = query.filter(Memory.category == request.category)
+        # Category filtering removed in simplified schema (Issue #112)
 
         if request.tags:
             tag_conditions = []
