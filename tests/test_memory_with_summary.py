@@ -198,7 +198,7 @@ class TestMemoryAPIWithSummaryIntegration:
         # Issue #110 is implemented - summary should be generated
         assert "summary" in data
         assert data["summary"] is not None
-        assert "要約:" in data["summary"]  # Japanese prefix should be present
+        assert len(data["summary"]) > 0  # Summary content should be present (prefix removed)
         assert "summary_generated_at" in data
         assert data["summary_generated_at"] is not None
 
@@ -216,14 +216,14 @@ class TestMemoryAPIWithSummaryIntegration:
         from unittest.mock import patch
 
         with patch("app.services.summarization.SummarizationService") as mock_service:
-            mock_service.return_value.generate_summary.return_value = "要約: テスト要約"
+            mock_service.return_value.generate_summary.return_value = "テスト要約"
 
             response = client.post("/api/memories", json=memory_data)
 
             assert response.status_code == 201
             data = response.json()
 
-            assert data["summary"] == "要約: テスト要約"
+            assert data["summary"] == "テスト要約"
             assert data["summary_generated_at"] is not None
 
     def test_list_memories_optimized_behavior(self, client, db_session):

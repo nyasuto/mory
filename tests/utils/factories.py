@@ -76,7 +76,7 @@ class MemoryFactory:
         category: str = "test",
         key: str | None = None,
         value: str = "This is a longer test memory content that should be summarized",
-        summary: str = "要約: Test memory summary",
+        summary: str = "Test memory summary",
         tags: list[str] | None = None,
         **kwargs,
     ) -> Memory:
@@ -99,7 +99,7 @@ class MemoryFactory:
         category: str = "日本語",
         key: str | None = None,
         value: str = "これは日本語のテストメモリです。長い文章で要約のテストに使用します。",
-        summary: str = "要約: 日本語テストメモリ",
+        summary: str = "日本語テストメモリ",
         tags: list[str] | None = None,
     ) -> Memory:
         """Create Japanese memory for testing"""
@@ -118,7 +118,7 @@ class MemoryFactory:
         large_content = " ".join(
             [f"This is sentence {i} in a large memory content." for i in range(size)]
         )
-        summary = f"要約: Large memory with {size} sentences"
+        summary = f"Large memory with {size} sentences"
 
         return MemoryFactory.create_memory_with_summary(
             category=category,
@@ -189,7 +189,7 @@ class TestDataSets:
                 MemoryFactory.create_memory_with_summary(
                     category=f"category_{i % 3}",
                     value=f"Longer memory content {i} that has been summarized",
-                    summary=f"要約: Content {i}",
+                    summary=f"Content {i}",
                     tags=[f"tag_{i}", "summarized"],
                 )
             )
@@ -201,7 +201,7 @@ class TestDataSets:
                 MemoryFactory.create_japanese_memory(
                     category="日本語",
                     value=f"日本語メモリ {i} の内容です。",
-                    summary=f"要約: 日本語メモリ {i}",
+                    summary=f"日本語メモリ {i}",
                     tags=["日本語", f"タグ_{i}"],
                 )
             )
